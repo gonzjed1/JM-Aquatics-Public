@@ -1,112 +1,111 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { Collapsible } from '@/components/ui/collapsible';
-import { ExternalLink } from '@/components/external-link';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Fonts } from '@/constants/theme';
 
-export default function TabTwoScreen() {
+// --- fake data: this week's shifts (backend replaces later) ---
+const WEEK = [
+  { day: 'Mon', date: 'Aug 3', in: '8:02 AM', out: '4:31 PM', hours: 8.0 },
+  { day: 'Tue', date: 'Aug 4', in: '7:58 AM', out: '4:29 PM', hours: 8.0 },
+  { day: 'Wed', date: 'Aug 5', in: '8:05 AM', out: '4:35 PM', hours: 8.0 },
+  { day: 'Thu', date: 'Aug 6', in: '8:00 AM', out: '12:04 PM', hours: 4.0 },
+  { day: 'Fri', date: 'Aug 7', in: '8:02 AM', out: '—', hours: 3.5 },
+];
+
+const HOURLY_RATE = 18; // fake rate for the demo
+
+export default function TimesheetScreen() {
+  const totalHours = WEEK.reduce((sum, d) => sum + d.hours, 0);
+  const estimatedPay = totalHours * HOURLY_RATE;
+
   return (
     <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
+      headerBackgroundColor={{ light: '#1D3D47', dark: '#1D3D47' }}
       headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
-        />
+        <ThemedView style={styles.header}>
+          <ThemedText type="title" style={styles.headerText}>
+            Timesheet
+          </ThemedText>
+        </ThemedView>
       }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText
-          type="title"
-          style={{
-            fontFamily: Fonts.rounded,
-          }}>
-          Explore
-        </ThemedText>
+      {/* week summary */}
+      <ThemedView style={styles.summaryRow}>
+        <ThemedView style={styles.summaryBox}>
+          <ThemedText type="title">{totalHours.toFixed(1)}</ThemedText>
+          <ThemedText style={styles.summaryLabel}>hours this week</ThemedText>
+        </ThemedView>
+        <ThemedView style={styles.summaryBox}>
+          <ThemedText type="title">${estimatedPay.toFixed(0)}</ThemedText>
+          <ThemedText style={styles.summaryLabel}>estimated pay</ThemedText>
+        </ThemedView>
       </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
-        <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
-        </ThemedText>
-        <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
-        <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
-        </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
-        </ThemedText>
-        <Image
-          source={require('@/assets/images/react-logo.png')}
-          style={{ width: 100, height: 100, alignSelf: 'center' }}
-        />
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful{' '}
-          <ThemedText type="defaultSemiBold" style={{ fontFamily: Fonts.mono }}>
-            react-native-reanimated
-          </ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
+
+      {/* daily rows */}
+      <ThemedView style={styles.list}>
+        {WEEK.map((d) => (
+          <View key={d.day} style={styles.row}>
+            <View style={styles.dayCol}>
+              <ThemedText type="defaultSemiBold">{d.day}</ThemedText>
+              <ThemedText style={styles.dateText}>{d.date}</ThemedText>
+            </View>
+            <ThemedText style={styles.timeText}>
+              {d.in} – {d.out}
             </ThemedText>
-          ),
-        })}
-      </Collapsible>
+            <ThemedText type="defaultSemiBold">{d.hours.toFixed(1)}h</ThemedText>
+          </View>
+        ))}
+      </ThemedView>
     </ParallaxScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
-    position: 'absolute',
+  header: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    padding: 20,
+    backgroundColor: 'transparent',
   },
-  titleContainer: {
+  headerText: {
+    color: '#FFFFFF',
+  },
+  summaryRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 12,
+  },
+  summaryBox: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#888',
+  },
+  summaryLabel: {
+    opacity: 0.7,
+    marginTop: 2,
+  },
+  list: {
+    marginTop: 8,
+    gap: 4,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#888',
+  },
+  dayCol: {
+    width: 70,
+  },
+  dateText: {
+    opacity: 0.6,
+    fontSize: 13,
+  },
+  timeText: {
+    opacity: 0.85,
   },
 });
