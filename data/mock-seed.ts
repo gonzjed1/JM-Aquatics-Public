@@ -136,7 +136,7 @@ const at = (hhmm: string, dayOffset = 0): string => {
 // Sam is the worker persona the demo signs in as.
 
 export const STAFF: StaffMember[] = [
-  { id: 'jed', name: 'Jed Morick', short: 'Jed', role: 'owner', hourlyRate: 0, phone: '(301) 555-0100', email: 'jed@jmaquatics.com' },
+  { id: 'jed', name: 'Jed Gonzalez', short: 'Jed', role: 'owner', hourlyRate: 0, phone: '(301) 555-0100', email: 'jed@jmaquatics.com' },
   { id: 'mike', name: 'Mike Alvarez', short: 'Mike A.', role: 'admin', hourlyRate: 0, phone: '(301) 555-0111', email: 'mike@jmaquatics.com' },
   { id: 'sam', name: 'Sam Ortiz', short: 'Sam O.', role: 'worker', hourlyRate: 24.5, phone: '(301) 555-0123', email: 'sam@jmaquatics.com' },
   { id: 'sarah', name: 'Sarah Mitchell', short: 'Sarah M.', role: 'worker', hourlyRate: 24.5, phone: '(301) 555-0112', email: 'sarah@jmaquatics.com' },
