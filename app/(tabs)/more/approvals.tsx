@@ -1,4 +1,3 @@
-import { useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import ParallaxScrollView from '@/components/parallax-scroll-view';
@@ -12,6 +11,7 @@ import { useAppData } from '@/contexts/app-data';
 import { formatWallClock } from '@/data/format';
 import type { RequestKind, RequestStatus } from '@/data/mock-seed';
 import { openSlots, shiftLabel } from '@/data/shifts';
+import { useBack } from '@/hooks/use-back';
 
 const KIND_LABEL: Record<RequestKind, string> = {
   'punch-correction': 'Punch correction',
@@ -27,7 +27,7 @@ const KIND_LABEL: Record<RequestKind, string> = {
  * "Awaiting approval" row turns into a confirmed shift wherever they look.
  */
 export default function ApprovalsScreen() {
-  const router = useRouter();
+  const back = useBack();
   const { requests, staffById, setRequestStatus, pendingOffers, assignToShift } = useAppData();
 
   const newestFirst = (a: { at: string }, b: { at: string }) => b.at.localeCompare(a.at);
@@ -40,7 +40,7 @@ export default function ApprovalsScreen() {
     <ParallaxScrollView
       headerBackgroundColor={HEADER_BG}
       headerImage={<ScreenHeader title="Approval Queue" subtitle={`${waiting} waiting`} />}
-      onBack={() => router.back()}>
+      onBack={back}>
       <Card style={styles.list}>
         <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
           Requests

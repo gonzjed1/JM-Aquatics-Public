@@ -1,3 +1,4 @@
+import { CommonActions, type NavigationState, type PartialState } from '@react-navigation/native';
 import { Tabs } from 'expo-router';
 import React from 'react';
 
@@ -37,6 +38,30 @@ export default function TabLayout() {
       }}>
       <Tabs.Screen
         name="index"
+        // Home pushes More screens directly (tiles, banner, View All Activity).
+        // On web that lands the pushed screen at the *bottom* of More's stack
+        // and, when Home is returned to through browser history or navigate,
+        // the stack is left as is: the next push stacks on the stale screen
+        // and a later menu tap into the same screen reuses its old params. So
+        // whenever More is not the focused tab and its stack isn't a bare
+        // menu, drop the nested state — it re-initialises at the menu.
+        listeners={({ navigation }) => ({
+          state: () => {
+            const state = navigation.getState() as NavigationState;
+            if (state.routes[state.index]?.name === 'more') return;
+            const more = state.routes.find((r) => r.name === 'more');
+            const nested = more?.state as NavigationState | PartialState<NavigationState> | undefined;
+            const routes = nested?.routes ?? [];
+            if (routes.length > 1 || (routes.length === 1 && routes[0].name !== 'index')) {
+              navigation.dispatch(
+                CommonActions.reset({
+                  ...state,
+                  routes: state.routes.map((r) => (r.name === 'more' ? { key: r.key, name: r.name } : r)),
+                })
+              );
+            }
+          },
+        })}
         options={{
           title: 'Home',
           tabBarBadge: newPostings || undefined,

@@ -1,4 +1,3 @@
-import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Switch, View } from 'react-native';
 
@@ -10,13 +9,14 @@ import { ListRow } from '@/components/ui/list-row';
 import { can } from '@/constants/permissions';
 import { useAuth } from '@/contexts/auth-context';
 import { LOCATIONS } from '@/data/mock-seed';
+import { useBack } from '@/hooks/use-back';
 
 /**
  * Preferences are local state for now — they reset on reload. Persisting them
  * (per user, server-side) comes with the backend.
  */
 export default function SettingsScreen() {
-  const router = useRouter();
+  const back = useBack();
   const { role } = useAuth();
   const [shiftAlerts, setShiftAlerts] = useState(true);
   const [messageAlerts, setMessageAlerts] = useState(true);
@@ -26,7 +26,7 @@ export default function SettingsScreen() {
     <ParallaxScrollView
       headerBackgroundColor={HEADER_BG}
       headerImage={<ScreenHeader title="Settings" />}
-      onBack={() => router.back()}>
+      onBack={back}>
       <Card>
         <ThemedText type="defaultSemiBold">Notifications</ThemedText>
         <Toggle label="Shift changes" value={shiftAlerts} onChange={setShiftAlerts} />

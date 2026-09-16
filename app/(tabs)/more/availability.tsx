@@ -1,4 +1,3 @@
-import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -10,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useAppData, useMe } from '@/contexts/app-data';
 import { useArmedAction } from '@/hooks/use-armed-action';
+import { useBack } from '@/hooks/use-back';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const WEEKDAYS = [1, 2, 3, 4, 5];
@@ -19,7 +19,7 @@ const WEEKDAYS = [1, 2, 3, 4, 5];
  * days they can usually work. Both land in his activity feed.
  */
 export default function AvailabilityScreen() {
-  const router = useRouter();
+  const back = useBack();
   const me = useMe();
   const { availability, submitAvailability, openShiftsFor, answerFor, respondToShift } = useAppData();
   const meId = me?.id ?? '';
@@ -56,7 +56,7 @@ export default function AvailabilityScreen() {
           subtitle={open.length ? `${answered} of ${open.length} open shifts answered` : 'No open shifts right now'}
         />
       }
-      onBack={() => router.back()}>
+      onBack={back}>
       <Card style={styles.openCard}>
         <ThemedText type="defaultSemiBold">Open shifts</ThemedText>
         <ThemedText style={styles.muted}>{"Hit ✓ or ✗ if you're available for these shifts."}</ThemedText>

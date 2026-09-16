@@ -1,4 +1,4 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { StyleSheet } from 'react-native';
 
 import ParallaxScrollView from '@/components/parallax-scroll-view';
@@ -10,6 +10,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Card } from '@/components/ui/card';
 import { byStart, useAppData } from '@/contexts/app-data';
 import { isOpen } from '@/data/shifts';
+import { useBack } from '@/hooks/use-back';
 
 /**
  * The availability board: every upcoming shift that still has room, with who
@@ -17,7 +18,7 @@ import { isOpen } from '@/data/shifts';
  * the unfilled-shift banner land here; `?shift=` puts that one at the top.
  */
 export default function OpenShiftsScreen() {
-  const router = useRouter();
+  const back = useBack();
   const { shift: focusId } = useLocalSearchParams<{ shift?: string }>();
   const { today, shifts } = useAppData();
 
@@ -36,7 +37,7 @@ export default function OpenShiftsScreen() {
           subtitle={open.length === 1 ? '1 open shift' : `${open.length} open shifts`}
         />
       }
-      onBack={() => router.back()}>
+      onBack={back}>
       {list.length === 0 ? (
         <Card>
           <ThemedText style={styles.muted}>Every upcoming shift is filled.</ThemedText>

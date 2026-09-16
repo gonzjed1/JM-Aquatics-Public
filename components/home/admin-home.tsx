@@ -49,12 +49,12 @@ export function AdminHome() {
         <HeaderIconButton
           name="gearshape.fill"
           label="Settings"
-          onPress={() => router.push('/more/settings')}
+          onPress={() => router.push({ pathname: '/more/settings', params: { from: 'home' } })}
         />
       }>
       {urgent.length > 0 ? (
         <Pressable
-          onPress={() => router.push({ pathname: '/more/open-shifts', params: { shift: urgent[0].id } })}
+          onPress={() => router.push({ pathname: '/more/open-shifts', params: { shift: urgent[0].id, from: 'home' } })}
           accessibilityRole="button"
           accessibilityLabel="Unfilled shift — open availability"
           style={({ pressed }) => [styles.banner, pressed && styles.bannerPressed]}>
@@ -76,13 +76,13 @@ export function AdminHome() {
         <ThemedText type="defaultSemiBold">{"Today's Overview"}</ThemedText>
         <ThemedText style={styles.muted}>{formatDayDateYear(today)}</ThemedText>
         <View style={styles.tiles}>
-          <StatTile value={staffToday} label="Staff Today" color="#2F6FB2" onPress={() => router.push('/more/staff-today')} />
-          <StatTile value={openShifts} label="Open Shifts" color="#27AE60" onPress={() => router.push('/more/open-shifts')} />
+          <StatTile value={staffToday} label="Staff Today" color="#2F6FB2" onPress={() => router.push({ pathname: '/more/staff-today', params: { from: 'home' } })} />
+          <StatTile value={openShifts} label="Open Shifts" color="#27AE60" onPress={() => router.push({ pathname: '/more/open-shifts', params: { from: 'home' } })} />
           <StatTile
             value={pendingRequests.length + pendingOffers.length}
             label="Pending Requests"
             color="#E5484D"
-            onPress={() => router.push('/more/approvals')}
+            onPress={() => router.push({ pathname: '/more/approvals', params: { from: 'home' } })}
           />
         </View>
       </Card>
@@ -144,7 +144,7 @@ export function AdminHome() {
         <Button
           label="View All Activity"
           variant="soft"
-          onPress={() => router.push('/more/activity')}
+          onPress={() => router.push({ pathname: '/more/activity', params: { from: 'home' } })}
           style={styles.viewAll}
         />
       </Card>

@@ -1,4 +1,3 @@
-import { useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import ParallaxScrollView from '@/components/parallax-scroll-view';
@@ -10,6 +9,7 @@ import { StatusDot, TONE_COLORS, type Tone } from '@/components/ui/status-dot';
 import { byStart, useAppData } from '@/contexts/app-data';
 import type { StaffMember } from '@/data/mock-seed';
 import { isOpen, shiftTimePlace } from '@/data/shifts';
+import { useBack } from '@/hooks/use-back';
 
 type Status = 'yes' | 'no' | 'pending';
 
@@ -26,7 +26,7 @@ const GROUPS: { status: Status; title: string; tone: Tone }[] = [
  * number and call / message on every row.
  */
 export default function StaffTodayScreen() {
-  const router = useRouter();
+  const back = useBack();
   const { today, staff, shifts, shiftResponses } = useAppData();
 
   const workers = staff.filter((s) => s.role === 'worker').sort((a, b) => a.name.localeCompare(b.name));
@@ -54,7 +54,7 @@ export default function StaffTodayScreen() {
           subtitle={`${onToday} on today · ${workers.length} on the roster`}
         />
       }
-      onBack={() => router.back()}>
+      onBack={back}>
       {GROUPS.map(({ status, title, tone }) => {
         const people = workers.filter((p) => statusOf(p) === status);
         return (

@@ -108,7 +108,7 @@ export function EmployeeHome() {
         <HeaderIconButton
           name="gearshape.fill"
           label="Settings"
-          onPress={() => router.push('/more/settings')}
+          onPress={() => router.push({ pathname: '/more/settings', params: { from: 'home' } })}
         />
       }>
       <Card>
@@ -189,7 +189,7 @@ export function EmployeeHome() {
           <Button
             label={`See all ${open.length}`}
             variant="soft"
-            onPress={() => router.push('/more/availability')}
+            onPress={() => router.push({ pathname: '/more/availability', params: { from: 'home' } })}
             style={styles.seeAll}
           />
         ) : null}
