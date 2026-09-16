@@ -85,6 +85,8 @@ export default function TabLayout() {
           ),
         }}
       />
+      {/* Step-1 leftover: its content now lives in More → My Hours. Kept off the bar. */}
+      <Tabs.Screen name="timesheet" options={{ href: null }} />
     </Tabs>
   );
 }
