@@ -12,6 +12,8 @@ type Props = {
   showFill?: boolean;
   /** Optional extra line, e.g. the assigned names or a response summary. */
   detail?: string;
+  /** Small pill beside the date, e.g. "Awaiting approval" on a shift the worker offered for. */
+  tag?: string;
   last?: boolean;
   /** Makes the row tappable and draws an expand chevron. */
   onPress?: () => void;
@@ -19,11 +21,18 @@ type Props = {
 };
 
 /** One shift as a list line: date, hours, location. */
-export function ShiftRow({ shift, showFill = false, detail, last = false, onPress, expanded = false }: Props) {
+export function ShiftRow({ shift, showFill = false, detail, tag, last = false, onPress, expanded = false }: Props) {
   const body = (
     <View style={[styles.row, !last && styles.divider]}>
       <View style={styles.main}>
-        <ThemedText type="defaultSemiBold">{formatDayDate(shift.date)}</ThemedText>
+        <View style={styles.dateLine}>
+          <ThemedText type="defaultSemiBold">{formatDayDate(shift.date)}</ThemedText>
+          {tag ? (
+            <View style={styles.tag}>
+              <ThemedText style={styles.tagText}>{tag}</ThemedText>
+            </View>
+          ) : null}
+        </View>
         <ThemedText>{formatTimeRange(shift.start, shift.end)}</ThemedText>
         <ThemedText style={styles.muted}>{shift.location}</ThemedText>
         {detail ? <ThemedText style={styles.muted}>{detail}</ThemedText> : null}
@@ -70,6 +79,24 @@ const styles = StyleSheet.create({
   main: {
     flex: 1,
     gap: 2,
+  },
+  dateLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  tag: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    backgroundColor: '#E8930C1F',
+  },
+  tagText: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '700',
+    color: '#B86E05',
   },
   muted: {
     fontSize: 13,

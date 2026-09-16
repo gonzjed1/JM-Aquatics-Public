@@ -10,25 +10,36 @@ import { HEADER_BG, HeaderIconButton, ScreenHeader } from '@/components/screen-h
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { useAppData, useMe } from '@/contexts/app-data';
-import { formatDayDate, formatTimeRange } from '@/data/format';
+import { byStart, useAppData, useMe } from '@/contexts/app-data';
+import { formatDayDate, formatTimeRange, formatWallClock } from '@/data/format';
+import type { AppNotification } from '@/data/mock-seed';
+import { shiftLabel } from '@/data/shifts';
 import { useArmedAction } from '@/hooks/use-armed-action';
 
 const OPEN_SHIFT_PREVIEW = 4;
+const UPCOMING_PREVIEW = 5;
+const ACTIVITY_PREVIEW = 4;
 
-/** A worker's dashboard: today's shift with a punch button, open shifts to answer, then what's coming up. */
+/**
+ * A worker's dashboard: today's shift with a punch button, what's coming up
+ * (confirmed shifts and the ones they've offered for, together by date), open
+ * shifts to answer, then a short activity trail.
+ */
 export function EmployeeHome() {
   const router = useRouter();
   const me = useMe();
   const {
     today,
+    shifts,
     shiftsFor,
+    awaitingFor,
     isClockedIn,
     clockIn,
     clockOut,
     openShiftsFor,
     answerFor,
     respondToShift,
+    notificationsFor,
     unreadNotificationsFor,
     markNotificationsRead,
   } = useAppData();
@@ -36,7 +47,9 @@ export function EmployeeHome() {
 
   // Captured once on arrival, so the "New" pills stay while the person reads
   // the card even though the badge clears straight away.
-  const [newShiftIds] = useState(() => new Set(unreadNotificationsFor(meId).map((n) => n.shiftId)));
+  const [newShiftIds] = useState(
+    () => new Set(unreadNotificationsFor(meId).filter((n) => n.kind === 'shift-posted').map((n) => n.shiftId))
+  );
   useEffect(() => {
     if (meId) markNotificationsRead(meId);
   }, [meId, markNotificationsRead]);
@@ -56,10 +69,28 @@ export function EmployeeHome() {
 
   if (!me) return null;
 
-  const upcoming = mine.filter((s) => s.date > today).slice(0, 3);
+  // Confirmed shifts and offers awaiting approval share one date-ordered list;
+  // the offers carry a tag. Both come straight off the store's shift data.
+  const upcoming = [
+    ...mine.filter((s) => s.date > today).map((shift) => ({ shift, awaiting: false })),
+    ...awaitingFor(me.id).map((shift) => ({ shift, awaiting: true })),
+  ]
+    .sort((a, b) => byStart(a.shift, b.shift))
+    .slice(0, UPCOMING_PREVIEW);
+  const awaitingCount = upcoming.filter((u) => u.awaiting).length;
+
   const open = openShiftsFor(me.id);
   const preview = open.slice(0, OPEN_SHIFT_PREVIEW);
   const newCount = open.filter((s) => newShiftIds.has(s.id)).length;
+
+  const recent = notificationsFor(me.id).slice(0, ACTIVITY_PREVIEW);
+  const lineFor = (n: AppNotification) => {
+    const shift = shifts.find((s) => s.id === n.shiftId);
+    const label = shift ? shiftLabel(shift) : 'a shift';
+    return n.kind === 'shift-filled'
+      ? `${label} was filled — thanks for offering.`
+      : `New shift posted: ${label}`;
+  };
 
   const punchLabel = punchArmed
     ? clockedIn
@@ -107,6 +138,29 @@ export function EmployeeHome() {
         ) : null}
       </Card>
 
+      <Card>
+        <ThemedText type="defaultSemiBold">Upcoming Shifts</ThemedText>
+        {awaitingCount > 0 ? (
+          <ThemedText style={styles.muted}>
+            {awaitingCount === 1
+              ? "1 you've offered for is awaiting approval."
+              : `${awaitingCount} you've offered for are awaiting approval.`}
+          </ThemedText>
+        ) : null}
+        {upcoming.length === 0 ? (
+          <ThemedText style={styles.muted}>Nothing scheduled yet.</ThemedText>
+        ) : (
+          upcoming.map(({ shift, awaiting }, i) => (
+            <ShiftRow
+              key={shift.id}
+              shift={shift}
+              tag={awaiting ? 'Awaiting approval' : undefined}
+              last={i === upcoming.length - 1}
+            />
+          ))
+        )}
+      </Card>
+
       <Card style={styles.openCard}>
         <ThemedText type="defaultSemiBold">Open shifts</ThemedText>
         <ThemedText style={styles.muted}>{"Hit ✓ or ✗ if you're available for these shifts."}</ThemedText>
@@ -142,12 +196,15 @@ export function EmployeeHome() {
       </Card>
 
       <Card>
-        <ThemedText type="defaultSemiBold">Upcoming Shifts</ThemedText>
-        {upcoming.length === 0 ? (
-          <ThemedText style={styles.muted}>Nothing scheduled yet.</ThemedText>
+        <ThemedText type="defaultSemiBold">Activity</ThemedText>
+        {recent.length === 0 ? (
+          <ThemedText style={styles.muted}>Nothing yet.</ThemedText>
         ) : (
-          upcoming.map((shift, i) => (
-            <ShiftRow key={shift.id} shift={shift} last={i === upcoming.length - 1} />
+          recent.map((n) => (
+            <ThemedText key={n.id} style={styles.activityLine}>
+              <ThemedText style={styles.activityTime}>{formatWallClock(new Date(n.at))} · </ThemedText>
+              {lineFor(n)}
+            </ThemedText>
           ))
         )}
       </Card>
@@ -184,5 +241,15 @@ const styles = StyleSheet.create({
   },
   seeAll: {
     marginTop: 10,
+  },
+  activityLine: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 6,
+  },
+  activityTime: {
+    fontSize: 14,
+    lineHeight: 20,
+    opacity: 0.6,
   },
 });

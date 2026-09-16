@@ -47,6 +47,9 @@ export type AssignableRole = 'worker' | 'admin';
 /** Who said what about one shift: ✓ first, ✗ second, everyone else pending. */
 export type ResponseGroups = { yes: StaffMember[]; no: StaffMember[]; pending: StaffMember[] };
 
+/** A worker who said ✓ to a shift that still has room and hasn't been put on it yet. */
+export type ShiftOffer = { shift: Shift; staff: StaffMember };
+
 type AppData = {
   today: string;
   weekStart: string;
@@ -56,6 +59,13 @@ type AppData = {
   punches: Punch[];
   requests: ApprovalRequest[];
   pendingRequests: ApprovalRequest[];
+  /**
+   * Every open ✓ on an upcoming shift, soonest shift first then by name. This is
+   * the admin's half of "awaiting approval": derived from `shifts` and
+   * `shiftResponses` on the fly, so assigning someone (or the shift filling)
+   * removes the offer everywhere at once.
+   */
+  pendingOffers: ShiftOffer[];
   activity: ActivityItem[];
   conversations: Conversation[];
   payroll: PayrollLine[];
@@ -72,8 +82,12 @@ type AppData = {
   shiftsFor: (staffId: string) => Shift[];
   /** Upcoming shifts with room that this person isn't on and that don't clash with their own. */
   openShiftsFor: (staffId: string) => Shift[];
+  /** The worker's half of "awaiting approval": open shifts they said ✓ to and haven't been assigned. */
+  awaitingFor: (staffId: string) => Shift[];
   answerFor: (shiftId: string, staffId: string) => ShiftAnswer | undefined;
   responsesFor: (shiftId: string) => ResponseGroups;
+  /** Everything addressed to this person, newest first. */
+  notificationsFor: (staffId: string) => AppNotification[];
   unreadNotificationsFor: (staffId: string) => AppNotification[];
 
   clockIn: (staffId: string, location: Location) => void;
@@ -85,6 +99,7 @@ type AppData = {
   setRequestStatus: (id: string, status: RequestStatus) => void;
   submitAvailability: (staffId: string, weekdays: number[]) => void;
   respondToShift: (shiftId: string, staffId: string, answer: ShiftAnswer) => void;
+  /** Puts the person on the shift. If that fills it, everyone else who offered is told. */
   assignToShift: (shiftId: string, staffId: string) => void;
   markNotificationsRead: (staffId: string) => void;
 };
@@ -122,7 +137,7 @@ function nextPunchTime(existing: Punch[], staffId: string): string {
 let nextId = 1000;
 const newId = (prefix: string) => `${prefix}${nextId++}`;
 
-const byStart = (a: Shift, b: Shift) => `${a.date}${a.start}`.localeCompare(`${b.date}${b.start}`);
+export const byStart = (a: Shift, b: Shift) => `${a.date}${a.start}`.localeCompare(`${b.date}${b.start}`);
 const byName = (a: StaffMember, b: StaffMember) => a.name.localeCompare(b.name);
 
 export function AppDataProvider({ children }: PropsWithChildren) {
@@ -216,6 +231,36 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     [shifts]
   );
 
+  // Nothing is stored for "awaiting": a ✓ on a shift that still has room *is*
+  // the pending offer. Assigning the person moves the shift into shiftsFor();
+  // the shift filling with others makes it drop out of here.
+  const awaitingFor = useCallback(
+    (staffId: string) =>
+      shifts
+        .filter(
+          (s) =>
+            s.date >= MOCK_TODAY &&
+            isOpen(s) &&
+            !s.assigned.includes(staffId) &&
+            shiftResponses[s.id]?.[staffId] === 'yes'
+        )
+        .sort(byStart),
+    [shifts, shiftResponses]
+  );
+
+  const pendingOffers = useMemo<ShiftOffer[]>(() => {
+    const offers: ShiftOffer[] = [];
+    for (const shift of [...shifts].sort(byStart)) {
+      if (shift.date < MOCK_TODAY || !isOpen(shift)) continue;
+      const answers = shiftResponses[shift.id] ?? {};
+      const people = staff
+        .filter((p) => p.role === 'worker' && answers[p.id] === 'yes' && !shift.assigned.includes(p.id))
+        .sort(byName);
+      for (const person of people) offers.push({ shift, staff: person });
+    }
+    return offers;
+  }, [shifts, shiftResponses, staff]);
+
   const answerFor = useCallback(
     (shiftId: string, staffId: string) => shiftResponses[shiftId]?.[staffId],
     [shiftResponses]
@@ -274,22 +319,42 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     (shiftId: string, staffId: string) => {
       const shift = shifts.find((s) => s.id === shiftId);
       if (!shift || shift.assigned.includes(staffId) || !isOpen(shift)) return;
-      setShifts((prev) => prev.map((s) => (s.id === shiftId ? { ...s, assigned: [...s.assigned, staffId] } : s)));
+      const assigned = [...shift.assigned, staffId];
+      setShifts((prev) => prev.map((s) => (s.id === shiftId ? { ...s, assigned } : s)));
       logActivity({ kind: 'shift', who: actor, text: `Assigned ${firstName(staffId)} to ${shiftLabel(shift)}` });
+
+      // That was the last slot: anyone else who offered is off the list now, and
+      // hears so on their Home activity rather than just watching the shift vanish.
+      if (assigned.length >= shift.slots) {
+        const passedOver = Object.entries(shiftResponses[shiftId] ?? {})
+          .filter(([id, answer]) => answer === 'yes' && !assigned.includes(id))
+          .map(([id]) => id);
+        if (passedOver.length > 0) {
+          setNotifications((prev) => [
+            { id: newId('n'), kind: 'shift-filled', audience: 'workers', shiftId, toStaff: passedOver, at: nowOnDemoDay(), readBy: [] },
+            ...prev,
+          ]);
+        }
+      }
     },
-    [actor, firstName, logActivity, shifts]
+    [actor, firstName, logActivity, shifts, shiftResponses]
   );
 
   // --- notifications ------------------------------------------------------------
 
-  const unreadNotificationsFor = useCallback(
+  const notificationsFor = useCallback(
     (staffId: string) => {
       const audience = staffById(staffId)?.role === 'worker' ? 'workers' : 'admin';
       return notifications
-        .filter((n) => n.audience === audience && !n.readBy.includes(staffId))
+        .filter((n) => n.audience === audience && (!n.toStaff || n.toStaff.includes(staffId)))
         .sort((a, b) => b.at.localeCompare(a.at));
     },
     [notifications, staffById]
+  );
+
+  const unreadNotificationsFor = useCallback(
+    (staffId: string) => notificationsFor(staffId).filter((n) => !n.readBy.includes(staffId)),
+    [notificationsFor]
   );
 
   const markNotificationsRead = useCallback((staffId: string) => {
@@ -373,6 +438,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       punches,
       requests,
       pendingRequests,
+      pendingOffers,
       activity,
       conversations: CONVERSATIONS,
       payroll: PAYROLL,
@@ -384,8 +450,10 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       clockedInNow,
       shiftsFor,
       openShiftsFor,
+      awaitingFor,
       answerFor,
       responsesFor,
+      notificationsFor,
       unreadNotificationsFor,
       clockIn,
       clockOut,
@@ -399,10 +467,10 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       markNotificationsRead,
     }),
     [
-      staff, staffById, shifts, punches, requests, pendingRequests, activity, availability,
+      staff, staffById, shifts, punches, requests, pendingRequests, pendingOffers, activity, availability,
       shiftResponses, notifications,
-      isClockedIn, punchesFor, clockedInNow, shiftsFor, openShiftsFor, answerFor, responsesFor,
-      unreadNotificationsFor,
+      isClockedIn, punchesFor, clockedInNow, shiftsFor, openShiftsFor, awaitingFor, answerFor, responsesFor,
+      notificationsFor, unreadNotificationsFor,
       clockIn, clockOut, addShift, addStaff, setStaffRole, setRequestStatus, submitAvailability,
       respondToShift, assignToShift, markNotificationsRead,
     ]

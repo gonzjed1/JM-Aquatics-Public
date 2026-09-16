@@ -20,6 +20,8 @@ type Props = {
   size?: 'md' | 'sm';
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
+  /** Screen-reader name when the visible label repeats on a screen (several "Assign" buttons). */
+  accessibilityLabel?: string;
 };
 
 export function Button({
@@ -30,6 +32,7 @@ export function Button({
   size = 'md',
   disabled = false,
   style,
+  accessibilityLabel,
 }: Props) {
   const color = TONE[tone];
   const fill =
@@ -44,6 +47,7 @@ export function Button({
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
       accessibilityState={{ disabled }}
       style={({ pressed }) => [
         styles.base,

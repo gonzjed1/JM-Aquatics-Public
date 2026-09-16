@@ -7,7 +7,7 @@ import { HEADER_BG, ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { Card } from '@/components/ui/card';
 import { Segmented } from '@/components/ui/segmented';
-import { useAppData, useMe } from '@/contexts/app-data';
+import { byStart, useAppData, useMe } from '@/contexts/app-data';
 import { formatDayDate, parseISODate, toISODate } from '@/data/format';
 
 type View_ = 'upcoming' | 'calendar';
@@ -16,14 +16,20 @@ const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 /** A worker's own shifts: as a list, or on a month grid. */
 export function EmployeeSchedule() {
   const me = useMe();
-  const { today, shiftsFor } = useAppData();
+  const { today, shiftsFor, awaitingFor } = useAppData();
   const [view, setView] = useState<View_>('upcoming');
   const [selected, setSelected] = useState(today);
 
   if (!me) return null;
 
   const mine = shiftsFor(me.id);
-  const upcoming = mine.filter((s) => s.date >= today);
+  const confirmed = mine.filter((s) => s.date >= today);
+  const awaiting = awaitingFor(me.id);
+  // Same list Home shows: confirmed shifts and offers awaiting approval, by date.
+  const upcoming = [
+    ...confirmed.map((shift) => ({ shift, awaiting: false })),
+    ...awaiting.map((shift) => ({ shift, awaiting: true })),
+  ].sort((a, b) => byStart(a.shift, b.shift));
   const shiftDays = new Set(mine.map((s) => s.date));
   const onSelected = mine.filter((s) => s.date === selected);
 
@@ -40,15 +46,14 @@ export function EmployeeSchedule() {
   const isoFor = (dayOfMonth: number) => toISODate(new Date(year, month, dayOfMonth));
   const monthLabel = base.toLocaleDateString([], { month: 'long', year: 'numeric' });
 
+  const subtitle =
+    `${confirmed.length} upcoming shift${confirmed.length === 1 ? '' : 's'}` +
+    (awaiting.length ? ` · ${awaiting.length} awaiting approval` : '');
+
   return (
     <ParallaxScrollView
       headerBackgroundColor={HEADER_BG}
-      headerImage={
-        <ScreenHeader
-          title="My Schedule"
-          subtitle={`${upcoming.length} upcoming shift${upcoming.length === 1 ? '' : 's'}`}
-        />
-      }>
+      headerImage={<ScreenHeader title="My Schedule" subtitle={subtitle} />}>
       <Segmented
         options={[
           { value: 'upcoming', label: 'Upcoming' },
@@ -63,8 +68,13 @@ export function EmployeeSchedule() {
           {upcoming.length === 0 ? (
             <ThemedText style={styles.muted}>Nothing scheduled yet.</ThemedText>
           ) : (
-            upcoming.map((shift, i) => (
-              <ShiftRow key={shift.id} shift={shift} last={i === upcoming.length - 1} />
+            upcoming.map(({ shift, awaiting: pending }, i) => (
+              <ShiftRow
+                key={shift.id}
+                shift={shift}
+                tag={pending ? 'Awaiting approval' : undefined}
+                last={i === upcoming.length - 1}
+              />
             ))
           )}
         </Card>

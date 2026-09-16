@@ -110,13 +110,15 @@ export type ShiftResponses = Record<string, Record<string, ShiftAnswer>>;
 
 export type AppNotification = {
   id: string;
-  kind: 'shift-posted';
+  kind: 'shift-posted' | 'shift-filled';
   /** Workers hear about new shifts; nothing is aimed at owner/admin yet. */
   audience: 'workers' | 'admin';
   shiftId: string;
   at: string; // ISO
   /** Staff ids who have seen it. */
   readBy: string[];
+  /** Only these people see it — used for shift-filled. Absent means everyone in the audience. */
+  toStaff?: string[];
 };
 
 // --- helpers for building timestamps on the demo day --------------------------
@@ -174,7 +176,7 @@ export const SHIFT_RESPONSES: ShiftResponses = {
   s6: { chris: 'yes', emma: 'no', omar: 'yes' },
   s9: { sarah: 'yes', tony: 'no' },
   s10: { grace: 'yes' },
-  s11: { noah: 'yes', alex: 'no' },
+  s11: { noah: 'yes', alex: 'no', emma: 'yes' },
 };
 
 // --- notifications (in-app; push is a later phase) -----------------------------------------

@@ -16,7 +16,7 @@ import { addDays, formatDayDateYear } from '@/data/format';
 export function AdminHome() {
   const router = useRouter();
   const me = useMe();
-  const { today, weekStart, shifts, pendingRequests, activity } = useAppData();
+  const { today, weekStart, shifts, pendingRequests, pendingOffers, activity } = useAppData();
 
   const weekEnd = addDays(weekStart, 6);
   const weekShifts = shifts.filter((s) => s.date >= weekStart && s.date <= weekEnd);
@@ -45,7 +45,7 @@ export function AdminHome() {
         <View style={styles.tiles}>
           <StatTile value={staffToday} label="Staff Today" color="#2F6FB2" />
           <StatTile value={openShifts} label="Open Shifts" color="#27AE60" />
-          <StatTile value={pendingRequests.length} label="Pending Requests" color="#E5484D" />
+          <StatTile value={pendingRequests.length + pendingOffers.length} label="Pending Requests" color="#E5484D" />
         </View>
       </Card>
 

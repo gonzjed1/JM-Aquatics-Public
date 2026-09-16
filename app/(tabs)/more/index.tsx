@@ -28,7 +28,7 @@ export default function MoreScreen() {
   const router = useRouter();
   const { role, signOut } = useAuth();
   const me = useMe();
-  const { pendingRequests } = useAppData();
+  const { pendingRequests, pendingOffers } = useAppData();
 
   // Rows are gated by capability, and the routes behind them are gated again
   // in more/_layout.tsx — a hidden row is never the only thing in the way.
@@ -44,7 +44,7 @@ export default function MoreScreen() {
     rows.push({ key: 'reports', icon: 'chart.bar.fill', title: 'Reports', subtitle: can(role, 'viewPayroll') ? 'Hours, attendance, labor' : 'Hours, attendance', href: '/more/reports' });
   }
   if (can(role, 'approveRequests')) {
-    rows.push({ key: 'approvals', icon: 'bell.fill', tint: '#E8930C', title: 'Approval Queue', subtitle: 'Corrections, swaps, time off', href: '/more/approvals', badge: pendingRequests.length });
+    rows.push({ key: 'approvals', icon: 'bell.fill', tint: '#E8930C', title: 'Approval Queue', subtitle: 'Requests and shift offers', href: '/more/approvals', badge: pendingRequests.length + pendingOffers.length });
   }
 
   if (role === 'worker') {

@@ -13,14 +13,14 @@ export default function TabLayout() {
   const colorScheme = useColorScheme();
   const { role } = useAuth();
   const me = useMe();
-  const { conversations, pendingRequests, unreadNotificationsFor } = useAppData();
+  const { conversations, pendingRequests, pendingOffers, unreadNotificationsFor } = useAppData();
 
   const unread = me
     ? conversations
         .filter((c) => c.participants.includes(me.id))
         .reduce((total, c) => total + c.unread, 0)
     : 0;
-  const awaitingApproval = can(role, 'approveRequests') ? pendingRequests.length : 0;
+  const awaitingApproval = can(role, 'approveRequests') ? pendingRequests.length + pendingOffers.length : 0;
   // Workers get a count of shift postings they haven't seen; Home clears it.
   const newPostings = me && role === 'worker' ? unreadNotificationsFor(me.id).length : 0;
 
