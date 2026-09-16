@@ -7,7 +7,6 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -16,8 +15,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText, type ThemedTextProps } from '@/components/themed-text';
+import { Button } from '@/components/ui/button';
 import { WaterBackground } from '@/components/water-background';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuth, type StaffRole } from '@/contexts/auth-context';
 
 const LOGO = require('../design-refs/logo.webp');
 
@@ -42,7 +42,7 @@ function WaterText(props: ThemedTextProps) {
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
-  const { signInAsWorker, signInAsAdmin } = useAuth();
+  const { signInAsWorker, signInWithPasscode } = useAuth();
 
   const [passcode, setPasscode] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -108,8 +108,9 @@ export default function LoginScreen() {
     return () => fade.stop();
   }, [videoLive, videoOpacity]);
 
-  const handleAdminSignIn = () => {
-    if (signInAsAdmin(passcode)) {
+  // One demo passcode opens either passcode-gated persona.
+  const handleStaffSignIn = (as: StaffRole) => {
+    if (signInWithPasscode(passcode, as)) {
       setPasscode('');
       setError(null);
     } else {
@@ -154,7 +155,7 @@ export default function LoginScreen() {
             </WaterText>
             <WaterText style={styles.tagline}>Teach. Grow. Make Waves.</WaterText>
 
-            {/* --- employee path --- */}
+            {/* --- worker path --- */}
             <View style={styles.cardShadow}>
               <BlurView intensity={55} tint="light" style={styles.cardBlur}>
                 <View style={styles.cardInner}>
@@ -162,29 +163,18 @@ export default function LoginScreen() {
                   <CardText style={styles.cardBody}>
                     Clock in and out, check your schedule, and see your own hours and pay.
                   </CardText>
-                  <Pressable
-                    onPress={signInAsWorker}
-                    accessibilityRole="button"
-                    style={({ pressed }) => [
-                      styles.button,
-                      styles.employeeButton,
-                      pressed && styles.buttonPressed,
-                    ]}>
-                    <ThemedText type="defaultSemiBold" style={styles.buttonLabel}>
-                      Sign in as Employee
-                    </ThemedText>
-                  </Pressable>
+                  <Button label="Sign in as Employee" tone="success" onPress={signInAsWorker} />
                 </View>
               </BlurView>
             </View>
 
-            {/* --- admin path (demo passcode gate) --- */}
+            {/* --- passcode-gated personas (demo gate) --- */}
             <View style={styles.cardShadow}>
               <BlurView intensity={55} tint="light" style={styles.cardBlur}>
                 <View style={styles.cardInner}>
-                  <CardText type="subtitle">Admin</CardText>
+                  <CardText type="subtitle">Owner & Admin</CardText>
                   <CardText style={styles.cardBody}>
-                    Full access to staff, schedules, and payroll.
+                    Full access for Jed. Scheduling and approvals for Mike.
                   </CardText>
                   <TextInput
                     value={passcode}
@@ -192,29 +182,19 @@ export default function LoginScreen() {
                       setPasscode(text);
                       if (error) setError(null);
                     }}
-                    onSubmitEditing={handleAdminSignIn}
-                    placeholder="Admin passcode"
+                    onSubmitEditing={() => handleStaffSignIn('owner')}
+                    placeholder="Passcode"
                     placeholderTextColor="#5F7383"
                     secureTextEntry
                     autoCapitalize="none"
                     autoCorrect={false}
                     returnKeyType="go"
-                    accessibilityLabel="Admin passcode"
+                    accessibilityLabel="Passcode"
                     style={styles.input}
                   />
                   {error ? <CardText style={styles.error}>{error}</CardText> : null}
-                  <Pressable
-                    onPress={handleAdminSignIn}
-                    accessibilityRole="button"
-                    style={({ pressed }) => [
-                      styles.button,
-                      styles.adminButton,
-                      pressed && styles.buttonPressed,
-                    ]}>
-                    <ThemedText type="defaultSemiBold" style={styles.buttonLabel}>
-                      Sign in as Admin
-                    </ThemedText>
-                  </Pressable>
+                  <Button label="Sign in as Jed (Owner)" tone="navy" onPress={() => handleStaffSignIn('owner')} />
+                  <Button label="Sign in as Mike (Admin)" tone="primary" onPress={() => handleStaffSignIn('admin')} />
                 </View>
               </BlurView>
             </View>
@@ -318,23 +298,5 @@ const styles = StyleSheet.create({
   error: {
     color: '#B02A1C',
     fontSize: 14,
-  },
-  button: {
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 2,
-  },
-  employeeButton: {
-    backgroundColor: '#27AE60',
-  },
-  adminButton: {
-    backgroundColor: '#1D3D47',
-  },
-  buttonPressed: {
-    opacity: 0.85,
-  },
-  buttonLabel: {
-    color: '#FFFFFF',
   },
 });

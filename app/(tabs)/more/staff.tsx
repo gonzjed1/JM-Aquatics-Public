@@ -8,14 +8,21 @@ import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ListRow } from '@/components/ui/list-row';
+import { ROLE_LABEL, can } from '@/constants/permissions';
 import { useAppData } from '@/contexts/app-data';
+import { useAuth } from '@/contexts/auth-context';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
-/** Jed's roster. Adding someone is real (they appear in Schedule → Staff and the lookup). */
+/**
+ * The roster. Adding someone is real (they appear in Schedule → Staff and the
+ * lookup). Moving someone between Worker and Admin is Owner-only.
+ */
 export default function StaffScreen() {
   const router = useRouter();
-  const { staff, addStaff } = useAppData();
+  const { role } = useAuth();
+  const { staff, addStaff, setStaffRole } = useAppData();
   const textColor = useThemeColor({}, 'text');
+  const canAssign = can(role, 'assignRoles');
 
   const [query, setQuery] = useState('');
   const [adding, setAdding] = useState(false);
@@ -23,11 +30,13 @@ export default function StaffScreen() {
   const [phone, setPhone] = useState('');
   const [note, setNote] = useState<string | null>(null);
 
-  const workers = staff.filter((s) => s.role === 'worker').sort((a, b) => a.name.localeCompare(b.name));
+  const team = staff.filter((s) => s.role !== 'owner').sort((a, b) => a.name.localeCompare(b.name));
+  const workers = team.filter((s) => s.role === 'worker');
+  const admins = team.filter((s) => s.role === 'admin');
   const needle = query.trim().toLowerCase();
   const shown = needle
-    ? workers.filter((w) => w.name.toLowerCase().includes(needle) || w.phone.includes(needle))
-    : workers;
+    ? team.filter((w) => w.name.toLowerCase().includes(needle) || w.phone.includes(needle))
+    : team;
 
   const canAdd = name.trim().length > 1;
   const submit = () => {
@@ -42,7 +51,12 @@ export default function StaffScreen() {
   return (
     <ParallaxScrollView
       headerBackgroundColor={HEADER_BG}
-      headerImage={<ScreenHeader title="Staff Management" subtitle={`${workers.length} instructors`} />}
+      headerImage={
+        <ScreenHeader
+          title="Staff Management"
+          subtitle={`${workers.length} instructors · ${admins.length} admin${admins.length === 1 ? '' : 's'}`}
+        />
+      }
       onBack={() => router.back()}
       headerRight={
         <Button
@@ -96,20 +110,37 @@ export default function StaffScreen() {
         {shown.length === 0 ? (
           <ThemedText style={styles.muted}>No one matches that.</ThemedText>
         ) : (
-          shown.map((person, i) => (
-            <View key={person.id} style={i < shown.length - 1 && styles.divider}>
-              <ListRow
-                icon="person.fill"
-                title={person.name}
-                subtitle={`${person.phone} · ${person.email}`}
-                right={
-                  <View style={styles.pill}>
-                    <ThemedText style={styles.pillText}>Instructor</ThemedText>
-                  </View>
-                }
-              />
-            </View>
-          ))
+          shown.map((person, i) => {
+            const isAdmin = person.role === 'admin';
+            return (
+              <View key={person.id} style={i < shown.length - 1 && styles.divider}>
+                <ListRow
+                  icon={isAdmin ? 'person.2.fill' : 'person.fill'}
+                  tint={isAdmin ? '#1D3D47' : '#2F6FB2'}
+                  title={person.name}
+                  subtitle={`${person.phone} · ${person.email}`}
+                  right={
+                    <View style={styles.rowRight}>
+                      <View style={[styles.pill, isAdmin && styles.pillAdmin]}>
+                        <ThemedText style={[styles.pillText, isAdmin && styles.pillTextAdmin]}>
+                          {isAdmin ? ROLE_LABEL.admin : 'Instructor'}
+                        </ThemedText>
+                      </View>
+                      {canAssign ? (
+                        <Button
+                          label={isAdmin ? 'Make worker' : 'Make admin'}
+                          tone={isAdmin ? 'navy' : 'primary'}
+                          variant="soft"
+                          size="sm"
+                          onPress={() => setStaffRole(person.id, isAdmin ? 'worker' : 'admin')}
+                        />
+                      ) : null}
+                    </View>
+                  }
+                />
+              </View>
+            );
+          })
         )}
       </Card>
     </ParallaxScrollView>
@@ -150,16 +181,26 @@ const styles = StyleSheet.create({
     opacity: 0.65,
     paddingVertical: 8,
   },
+  rowRight: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
   pill: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
     backgroundColor: 'rgba(47, 111, 178, 0.14)',
   },
+  pillAdmin: {
+    backgroundColor: 'rgba(29, 61, 71, 0.16)',
+  },
   pillText: {
     color: '#2F6FB2',
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '600',
+  },
+  pillTextAdmin: {
+    color: '#1D3D47',
   },
 });

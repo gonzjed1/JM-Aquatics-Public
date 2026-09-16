@@ -34,7 +34,7 @@ import { isOpen, shiftLabel, shiftsOverlap } from '@/data/shifts';
  * The one place screens read company data from and write changes to.
  *
  * Today it wraps the mock seed in React state so buttons do real things — a
- * clock-in on the Time tab shows up on Home and in Jed's activity feed, an
+ * clock-in on the Time tab shows up on Home and in the activity feed, an
  * approved request drops off the queue and the badge count, a posted shift
  * notifies every worker. Replacing the seed with API calls means changing the
  * bodies of the actions below; the screens keep calling the same functions.
@@ -42,6 +42,8 @@ import { isOpen, shiftLabel, shiftsOverlap } from '@/data/shifts';
 
 export type NewShift = Omit<Shift, 'id' | 'assigned'> & { assigned?: string[] };
 export type NewStaff = { name: string; phone: string };
+/** The tiers an owner can move someone between. Nobody is made owner from the app. */
+export type AssignableRole = 'worker' | 'admin';
 
 /** Who said what about one shift: ✓ first, ✗ second, everyone else pending. */
 export type ResponseGroups = { yes: StaffMember[]; no: StaffMember[]; pending: StaffMember[] };
@@ -80,6 +82,7 @@ type AppData = {
   /** Posts the shift and notifies every worker. */
   addShift: (shift: NewShift) => void;
   addStaff: (person: NewStaff) => void;
+  setStaffRole: (staffId: string, role: AssignableRole) => void;
   setRequestStatus: (id: string, status: RequestStatus) => void;
   submitAvailability: (staffId: string, weekdays: number[]) => void;
   respondToShift: (shiftId: string, staffId: string, answer: ShiftAnswer) => void;
@@ -106,6 +109,8 @@ const byStart = (a: Shift, b: Shift) => `${a.date}${a.start}`.localeCompare(`${b
 const byName = (a: StaffMember, b: StaffMember) => a.name.localeCompare(b.name);
 
 export function AppDataProvider({ children }: PropsWithChildren) {
+  const { role } = useAuth();
+
   const [staff, setStaff] = useState<StaffMember[]>(STAFF);
   const [shifts, setShifts] = useState<Shift[]>(SHIFTS);
   const [punches, setPunches] = useState<Punch[]>(PUNCHES);
@@ -117,6 +122,9 @@ export function AppDataProvider({ children }: PropsWithChildren) {
 
   const staffById = useCallback((id: string) => staff.find((s) => s.id === id), [staff]);
   const firstName = useCallback((id: string) => staffById(id)?.short.split(' ')[0] ?? id, [staffById]);
+
+  // Owner and admin actions are credited to whoever is signed in — Jed or Mike.
+  const actor = firstName(role ? DEMO_USER_FOR_ROLE[role] : 'jed');
 
   const logActivity = useCallback((item: Omit<ActivityItem, 'id' | 'at'>) => {
     setActivity((prev) => [{ ...item, id: newId('a'), at: nowOnDemoDay() }, ...prev]);
@@ -219,9 +227,9 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         { id: newId('n'), kind: 'shift-posted', audience: 'workers', shiftId: posted.id, at: nowOnDemoDay(), readBy: [] },
         ...prev,
       ]);
-      logActivity({ kind: 'shift', who: 'Jed', text: `Posted ${shiftLabel(posted)}` });
+      logActivity({ kind: 'shift', who: actor, text: `Posted ${shiftLabel(posted)}` });
     },
-    [logActivity]
+    [actor, logActivity]
   );
 
   const respondToShift = useCallback(
@@ -250,16 +258,16 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       const shift = shifts.find((s) => s.id === shiftId);
       if (!shift || shift.assigned.includes(staffId) || !isOpen(shift)) return;
       setShifts((prev) => prev.map((s) => (s.id === shiftId ? { ...s, assigned: [...s.assigned, staffId] } : s)));
-      logActivity({ kind: 'shift', who: 'Jed', text: `Assigned ${firstName(staffId)} to ${shiftLabel(shift)}` });
+      logActivity({ kind: 'shift', who: actor, text: `Assigned ${firstName(staffId)} to ${shiftLabel(shift)}` });
     },
-    [firstName, logActivity, shifts]
+    [actor, firstName, logActivity, shifts]
   );
 
   // --- notifications ------------------------------------------------------------
 
   const unreadNotificationsFor = useCallback(
     (staffId: string) => {
-      const audience = staffById(staffId)?.role === 'admin' ? 'admin' : 'workers';
+      const audience = staffById(staffId)?.role === 'worker' ? 'workers' : 'admin';
       return notifications
         .filter((n) => n.audience === audience && !n.readBy.includes(staffId))
         .sort((a, b) => b.at.localeCompare(a.at));
@@ -294,9 +302,23 @@ export function AppDataProvider({ children }: PropsWithChildren) {
           email: `${first.toLowerCase()}@jmaquatics.com`,
         },
       ]);
-      logActivity({ kind: 'staff', who: 'Jed', text: `Added ${name} to the team` });
+      logActivity({ kind: 'staff', who: actor, text: `Added ${name} to the team` });
     },
-    [logActivity]
+    [actor, logActivity]
+  );
+
+  const setStaffRole = useCallback(
+    (staffId: string, nextRole: AssignableRole) => {
+      const person = staffById(staffId);
+      if (!person || person.role === 'owner' || person.role === nextRole) return;
+      setStaff((prev) => prev.map((p) => (p.id === staffId ? { ...p, role: nextRole } : p)));
+      logActivity({
+        kind: 'staff',
+        who: actor,
+        text: `Made ${person.name} ${nextRole === 'admin' ? 'an admin' : 'a worker'}`,
+      });
+    },
+    [actor, logActivity, staffById]
   );
 
   const setRequestStatus = useCallback(
@@ -306,12 +328,12 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       if (target) {
         logActivity({
           kind: target.kind === 'punch-correction' ? 'correction' : 'swap',
-          who: 'Jed',
+          who: actor,
           text: `${status === 'approved' ? 'Approved' : 'Denied'} ${firstName(target.staffId)}'s ${target.summary.toLowerCase()}`,
         });
       }
     },
-    [firstName, logActivity, requests]
+    [actor, firstName, logActivity, requests]
   );
 
   const submitAvailability = useCallback(
@@ -352,6 +374,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       clockOut,
       addShift,
       addStaff,
+      setStaffRole,
       setRequestStatus,
       submitAvailability,
       respondToShift,
@@ -363,7 +386,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       shiftResponses, notifications,
       isClockedIn, punchesFor, clockedInNow, shiftsFor, openShiftsFor, answerFor, responsesFor,
       unreadNotificationsFor,
-      clockIn, clockOut, addShift, addStaff, setRequestStatus, submitAvailability,
+      clockIn, clockOut, addShift, addStaff, setStaffRole, setRequestStatus, submitAvailability,
       respondToShift, assignToShift, markNotificationsRead,
     ]
   );

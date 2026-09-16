@@ -48,7 +48,7 @@ export default function SettingsScreen() {
         </Card>
       ) : null}
 
-      {can(role, 'viewPayroll') ? (
+      {can(role, 'editPayRules') ? (
         <Card>
           <ThemedText type="defaultSemiBold">Pay rules</ThemedText>
           <Line label="Pay period" value="Semi-monthly (1st–15th, 16th–end)" />

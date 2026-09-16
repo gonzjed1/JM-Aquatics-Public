@@ -34,7 +34,7 @@ export default function PayrollScreen() {
   const { payroll, staffById } = useAppData();
 
   const [tab, setTab] = useState<Tab>('current');
-  const [selectedId, setSelectedId] = useState('mike');
+  const [selectedId, setSelectedId] = useState('sam');
   const [exportNote, setExportNote] = useState<string | null>(null);
 
   const rows = useMemo(() => payrollRows(payroll, staffById), [payroll, staffById]);

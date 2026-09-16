@@ -7,7 +7,9 @@ import { ThemedText } from '@/components/themed-text';
 import { Card } from '@/components/ui/card';
 import { KeyValue } from '@/components/ui/key-value';
 import { StatTile } from '@/components/ui/stat-tile';
+import { can } from '@/constants/permissions';
 import { useAppData } from '@/contexts/app-data';
+import { useAuth } from '@/contexts/auth-context';
 import {
   addDays,
   formatCurrency,
@@ -23,10 +25,16 @@ import { payrollRows, payrollTotal } from '@/data/payroll';
 /** Grace period before a clock-in counts as late. Another rule for J&M to confirm. */
 const LATE_AFTER_MINUTES = 5;
 
-/** Three read-outs computed live from the same data the other screens use. */
+/**
+ * Read-outs computed live from the same data the other screens use. Hours and
+ * attendance are for anyone who manages the schedule; the labor-cost card is
+ * pay data, so it's Owner-only.
+ */
 export default function ReportsScreen() {
   const router = useRouter();
+  const { role } = useAuth();
   const { today, weekStart, shifts, punches, payroll, staffById } = useAppData();
+  const showCost = can(role, 'viewPayroll');
 
   // --- scheduled hours this week --------------------------------------------
   const weekEnd = addDays(weekStart, 6);
@@ -55,7 +63,7 @@ export default function ReportsScreen() {
     }
   }
 
-  // --- labor cost this pay period ----------------------------------------------
+  // --- labor cost this pay period (Owner only) ---------------------------------
   const rows = payrollRows(payroll, staffById);
   const periodHours = rows.reduce((sum, r) => sum + r.line.hours + r.line.overtimeHours, 0);
   const laborCost = payrollTotal(rows);
@@ -63,7 +71,9 @@ export default function ReportsScreen() {
   return (
     <ParallaxScrollView
       headerBackgroundColor={HEADER_BG}
-      headerImage={<ScreenHeader title="Reports" subtitle="Hours, attendance, labor" />}
+      headerImage={
+        <ScreenHeader title="Reports" subtitle={showCost ? 'Hours, attendance, labor' : 'Hours, attendance'} />
+      }
       onBack={() => router.back()}>
       <Card>
         <ThemedText type="defaultSemiBold">Scheduled hours</ThemedText>
@@ -92,16 +102,18 @@ export default function ReportsScreen() {
         </ThemedText>
       </Card>
 
-      <Card>
-        <ThemedText type="defaultSemiBold">Labor cost</ThemedText>
-        <ThemedText style={styles.muted}>{formatDateRange(MOCK_PAY_PERIOD.start, MOCK_PAY_PERIOD.end)}</ThemedText>
-        <View style={styles.tiles}>
-          <StatTile value={rows.length} label="Employees" />
-          <StatTile value={formatHours(periodHours)} label="Hours" />
-          <StatTile value={formatCurrency(laborCost)} label="Estimated cost" color="#27AE60" />
-        </View>
-        <ThemedText style={styles.note}>Estimates until pay rules are confirmed with J&M.</ThemedText>
-      </Card>
+      {showCost ? (
+        <Card>
+          <ThemedText type="defaultSemiBold">Labor cost</ThemedText>
+          <ThemedText style={styles.muted}>{formatDateRange(MOCK_PAY_PERIOD.start, MOCK_PAY_PERIOD.end)}</ThemedText>
+          <View style={styles.tiles}>
+            <StatTile value={rows.length} label="Employees" />
+            <StatTile value={formatHours(periodHours)} label="Hours" />
+            <StatTile value={formatCurrency(laborCost)} label="Estimated cost" color="#27AE60" />
+          </View>
+          <ThemedText style={styles.note}>Estimates until pay rules are confirmed with J&M.</ThemedText>
+        </Card>
+      ) : null}
     </ParallaxScrollView>
   );
 }

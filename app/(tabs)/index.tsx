@@ -1,9 +1,10 @@
 import { AdminHome } from '@/components/home/admin-home';
 import { EmployeeHome } from '@/components/home/employee-home';
+import { can } from '@/constants/permissions';
 import { useAuth } from '@/contexts/auth-context';
 
-/** Home shows a different dashboard per role; both live in components/home. */
+/** Anyone who can see everyone's hours gets the management dashboard; workers get their own. */
 export default function HomeScreen() {
   const { role } = useAuth();
-  return role === 'admin' ? <AdminHome /> : <EmployeeHome />;
+  return can(role, 'viewAllHours') ? <AdminHome /> : <EmployeeHome />;
 }

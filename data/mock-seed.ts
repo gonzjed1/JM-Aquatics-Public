@@ -3,7 +3,7 @@
  * MOCK SEED — the whole company as of one frozen demo day.
  *
  * Every screen reads from this through the AppData store, so the numbers agree
- * with each other: the shift Mike sees on Home is the same row Jed sees on the
+ * with each other: the shift Sam sees on Home is the same row Jed sees on the
  * admin Schedule, and a punch on the Time tab shows up in Jed's activity feed.
  *
  * "Today" is pinned to Thu, Aug 7, 2025 to match the design reference, so the
@@ -111,7 +111,7 @@ export type ShiftResponses = Record<string, Record<string, ShiftAnswer>>;
 export type AppNotification = {
   id: string;
   kind: 'shift-posted';
-  /** Workers hear about new shifts; nothing is aimed at admin yet. */
+  /** Workers hear about new shifts; nothing is aimed at owner/admin yet. */
   audience: 'workers' | 'admin';
   shiftId: string;
   at: string; // ISO
@@ -128,10 +128,13 @@ const at = (hhmm: string, dayOffset = 0): string => {
 };
 
 // --- people -----------------------------------------------------------------------
+// Three tiers: Jed owns the business, Mike runs the schedule, everyone else teaches.
+// Sam is the worker persona the demo signs in as.
 
 export const STAFF: StaffMember[] = [
-  { id: 'jed', name: 'Jed Morick', short: 'Jed', role: 'admin', hourlyRate: 0, phone: '(301) 555-0100', email: 'jed@jmaquatics.com' },
-  { id: 'mike', name: 'Mike Alvarez', short: 'Mike A.', role: 'worker', hourlyRate: 24.5, phone: '(301) 555-0111', email: 'mike@jmaquatics.com' },
+  { id: 'jed', name: 'Jed Morick', short: 'Jed', role: 'owner', hourlyRate: 0, phone: '(301) 555-0100', email: 'jed@jmaquatics.com' },
+  { id: 'mike', name: 'Mike Alvarez', short: 'Mike A.', role: 'admin', hourlyRate: 0, phone: '(301) 555-0111', email: 'mike@jmaquatics.com' },
+  { id: 'sam', name: 'Sam Ortiz', short: 'Sam O.', role: 'worker', hourlyRate: 24.5, phone: '(301) 555-0123', email: 'sam@jmaquatics.com' },
   { id: 'sarah', name: 'Sarah Mitchell', short: 'Sarah M.', role: 'worker', hourlyRate: 24.5, phone: '(301) 555-0112', email: 'sarah@jmaquatics.com' },
   { id: 'chris', name: 'Chris Tran', short: 'Chris T.', role: 'worker', hourlyRate: 24.5, phone: '(301) 555-0113', email: 'chris@jmaquatics.com' },
   { id: 'alex', name: 'Alex Rivera', short: 'Alex R.', role: 'worker', hourlyRate: 24.5, phone: '(301) 555-0114', email: 'alex@jmaquatics.com' },
@@ -145,29 +148,29 @@ export const STAFF: StaffMember[] = [
   { id: 'omar', name: 'Omar Haddad', short: 'Omar H.', role: 'worker', hourlyRate: 24.5, phone: '(301) 555-0122', email: 'omar@jmaquatics.com' },
 ];
 
-/** Who the demo signs in as for each role. */
-export const DEMO_USER_FOR_ROLE: Record<Role, string> = { admin: 'jed', worker: 'mike' };
+/** Who the demo signs in as for each tier. */
+export const DEMO_USER_FOR_ROLE: Record<Role, string> = { owner: 'jed', admin: 'mike', worker: 'sam' };
 
 // --- schedule ---------------------------------------------------------------------
-// s9–s11 are open shifts Mike is not on (and that don't clash with his), so the
-// employee side has something to say ✓ / ✗ to from the first screen.
+// s9–s11 are open shifts Sam is not on (and that don't clash with his), so the
+// worker side has something to say ✓ / ✗ to from the first screen.
 
 export const SHIFTS: Shift[] = [
   { id: 's1', date: '2025-08-04', start: '08:00', end: '16:00', location: 'LA Fitness Bowie', slots: 5, assigned: ['sarah', 'chris', 'alex', 'dana', 'priya'] },
   { id: 's2', date: '2025-08-05', start: '11:30', end: '15:30', location: 'SPRFC Severna Park', slots: 5, assigned: ['luis', 'emma', 'noah', 'grace'] },
   { id: 's3', date: '2025-08-06', start: '09:00', end: '17:00', location: 'SPRFC Severna Park', slots: 5, assigned: ['sarah', 'chris', 'omar', 'dana', 'tony'] },
-  { id: 's4', date: '2025-08-07', start: '09:00', end: '12:00', location: 'LA Fitness Bowie', slots: 5, assigned: ['mike', 'sarah', 'alex'] },
+  { id: 's4', date: '2025-08-07', start: '09:00', end: '12:00', location: 'LA Fitness Bowie', slots: 5, assigned: ['sam', 'sarah', 'alex'] },
   { id: 's5', date: '2025-08-08', start: '08:00', end: '16:00', location: 'LA Fitness Bowie', slots: 4, assigned: ['chris', 'priya', 'luis', 'emma'] },
   { id: 's9', date: '2025-08-08', start: '16:00', end: '20:00', location: 'SPRFC Severna Park', slots: 2, assigned: [] },
-  { id: 's6', date: '2025-08-09', start: '08:00', end: '16:00', location: 'LA Fitness Bowie', slots: 4, assigned: ['mike', 'noah', 'grace'] },
-  { id: 's7', date: '2025-08-10', start: '08:00', end: '12:00', location: 'SPRFC Severna Park', slots: 3, assigned: ['mike', 'omar', 'tony'] },
+  { id: 's6', date: '2025-08-09', start: '08:00', end: '16:00', location: 'LA Fitness Bowie', slots: 4, assigned: ['sam', 'noah', 'grace'] },
+  { id: 's7', date: '2025-08-10', start: '08:00', end: '12:00', location: 'SPRFC Severna Park', slots: 3, assigned: ['sam', 'omar', 'tony'] },
   { id: 's10', date: '2025-08-10', start: '13:00', end: '17:00', location: 'SPRFC Severna Park', slots: 3, assigned: ['dana'] },
   { id: 's11', date: '2025-08-11', start: '09:00', end: '13:00', location: 'LA Fitness Bowie', slots: 4, assigned: ['chris', 'priya'] },
-  { id: 's8', date: '2025-08-12', start: '09:00', end: '17:00', location: 'SPRFC Severna Park', slots: 5, assigned: ['mike', 'sarah', 'dana'] },
+  { id: 's8', date: '2025-08-12', start: '09:00', end: '17:00', location: 'SPRFC Severna Park', slots: 5, assigned: ['sam', 'sarah', 'dana'] },
 ];
 
 // --- who has said ✓ / ✗ to the open shifts -------------------------------------------
-// Mike hasn't answered any yet, so his Home has pending items to act on.
+// Sam hasn't answered any yet, so his Home has pending items to act on.
 
 export const SHIFT_RESPONSES: ShiftResponses = {
   s4: { dana: 'yes', priya: 'yes', luis: 'no' },
@@ -178,7 +181,7 @@ export const SHIFT_RESPONSES: ShiftResponses = {
 };
 
 // --- notifications (in-app; push is a later phase) -----------------------------------------
-// The three newest open shifts were posted yesterday and Mike hasn't seen them.
+// The three newest open shifts were posted yesterday and Sam hasn't seen them.
 
 export const NOTIFICATIONS: AppNotification[] = [
   { id: 'n1', kind: 'shift-posted', audience: 'workers', shiftId: 's11', at: at('17:20', -1), readBy: [] },
@@ -190,10 +193,10 @@ export const NOTIFICATIONS: AppNotification[] = [
 
 export const PUNCHES: Punch[] = [
   { id: 'p1', staffId: 'sarah', kind: 'in', at: at('08:01'), location: 'LA Fitness Bowie' },
-  { id: 'p2', staffId: 'mike', kind: 'in', at: at('08:02'), location: 'LA Fitness Bowie' },
+  { id: 'p2', staffId: 'sam', kind: 'in', at: at('08:02'), location: 'LA Fitness Bowie' },
   { id: 'p3', staffId: 'chris', kind: 'in', at: at('08:07'), location: 'LA Fitness Bowie' },
   { id: 'p4', staffId: 'alex', kind: 'in', at: at('08:12'), location: 'LA Fitness Bowie' },
-  { id: 'p5', staffId: 'mike', kind: 'out', at: at('12:01'), location: 'LA Fitness Bowie' },
+  { id: 'p5', staffId: 'sam', kind: 'out', at: at('12:01'), location: 'LA Fitness Bowie' },
 ];
 
 // --- approvals ----------------------------------------------------------------------
@@ -208,11 +211,11 @@ export const REQUESTS: ApprovalRequest[] = [
   { id: 'r7', staffId: 'omar', kind: 'swap', summary: 'Shift swap request', detail: 'Swap Sun Aug 10 with Dana.', at: at('12:30', -3), status: 'denied' },
 ];
 
-// --- activity feed (admin Home) -------------------------------------------------------
+// --- activity feed (owner / admin Home) -----------------------------------------------
 
 export const ACTIVITY: ActivityItem[] = [
   { id: 'a0', kind: 'response', who: 'Dana', text: '✓ Available for Thu, Aug 7 · 9:00 AM – 12:00 PM · LA Fitness Bowie', at: at('14:30') },
-  { id: 'a1', kind: 'availability', who: 'Mike', text: 'Availability submitted', at: at('14:14') },
+  { id: 'a1', kind: 'availability', who: 'Sam', text: 'Availability submitted', at: at('14:14') },
   { id: 'a2', kind: 'correction', who: 'Tony', text: 'Punch correction request', at: at('13:47') },
   { id: 'a3', kind: 'message', who: 'All Staff', text: 'New message in All Staff', at: at('09:15') },
   { id: 'a4', kind: 'punch', who: 'Alex', text: 'Clocked in at LA Fitness Bowie', at: at('08:12') },
@@ -233,12 +236,16 @@ export const CONVERSATIONS: Conversation[] = [
     ],
   },
   {
-    id: 'c-jed-mike', name: '', group: false, participants: ['jed', 'mike'], unread: 2,
-    // Jed's question is the latest message, so Mike's unread badge makes sense.
+    id: 'c-jed-sam', name: '', group: false, participants: ['jed', 'sam'], unread: 2,
+    // Jed's question is the latest message, so Sam's unread badge makes sense.
     messages: [
-      { from: 'mike', text: 'Available Sat ✓', at: at('14:13') },
+      { from: 'sam', text: 'Available Sat ✓', at: at('14:13') },
       { from: 'jed', text: "You're on for Thursday, right?", at: at('14:14') },
     ],
+  },
+  {
+    id: 'c-jed-mike', name: '', group: false, participants: ['jed', 'mike'], unread: 1,
+    messages: [{ from: 'mike', text: "Approved Tony's correction — flagging his Tue hours for you.", at: at('13:55') }],
   },
   {
     id: 'c-jed-tony', name: '', group: false, participants: ['jed', 'tony'], unread: 0,
@@ -253,16 +260,17 @@ export const CONVERSATIONS: Conversation[] = [
     messages: [{ from: 'alex', text: 'Thanks!', at: at('17:40', -1) }],
   },
   {
-    id: 'c-mike-sarah', name: '', group: false, participants: ['mike', 'sarah'], unread: 0,
+    id: 'c-sam-sarah', name: '', group: false, participants: ['sam', 'sarah'], unread: 0,
     messages: [{ from: 'sarah', text: 'Can you cover Sun if my swap goes through?', at: at('11:45') }],
   },
 ];
 
 // --- payroll (period Aug 1–15) ------------------------------------------------------------
-// Mike's 24.4h is the number the Pay and Timesheet screens already agree on.
+// Sam's 24.4h is the number the My Pay and My Hours screens already agree on.
+// Owner and admin are salaried in the mock and have no line here.
 
 export const PAYROLL: PayrollLine[] = [
-  { staffId: 'mike', hours: 24.4, overtimeHours: 0 },
+  { staffId: 'sam', hours: 24.4, overtimeHours: 0 },
   { staffId: 'sarah', hours: 31.5, overtimeHours: 0 },
   { staffId: 'chris', hours: 30, overtimeHours: 0 },
   { staffId: 'alex', hours: 22, overtimeHours: 0 },

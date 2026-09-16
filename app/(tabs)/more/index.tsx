@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ListRow } from '@/components/ui/list-row';
-import { can } from '@/constants/permissions';
+import { ROLE_LABEL, can } from '@/constants/permissions';
 import { useAppData, useMe } from '@/contexts/app-data';
 import { useAuth } from '@/contexts/auth-context';
 
@@ -35,13 +35,13 @@ export default function MoreScreen() {
   const rows: MenuRow[] = [];
 
   if (can(role, 'manageStaff')) {
-    rows.push({ key: 'staff', icon: 'person.2.fill', title: 'Staff Management', subtitle: 'Add, edit, assign roles', href: '/more/staff' });
+    rows.push({ key: 'staff', icon: 'person.2.fill', title: 'Staff Management', subtitle: can(role, 'assignRoles') ? 'Add, edit, assign roles' : 'Add and edit instructors', href: '/more/staff' });
   }
   if (can(role, 'viewPayroll')) {
     rows.push({ key: 'payroll', icon: 'dollarsign.circle.fill', tint: '#27AE60', title: 'Payroll', subtitle: 'View pay, totals & export', href: '/more/payroll' });
   }
   if (can(role, 'viewAllHours')) {
-    rows.push({ key: 'reports', icon: 'chart.bar.fill', title: 'Reports', subtitle: 'Hours, attendance, labor', href: '/more/reports' });
+    rows.push({ key: 'reports', icon: 'chart.bar.fill', title: 'Reports', subtitle: can(role, 'viewPayroll') ? 'Hours, attendance, labor' : 'Hours, attendance', href: '/more/reports' });
   }
   if (can(role, 'approveRequests')) {
     rows.push({ key: 'approvals', icon: 'bell.fill', tint: '#E8930C', title: 'Approval Queue', subtitle: 'Corrections, swaps, time off', href: '/more/approvals', badge: pendingRequests.length });
@@ -56,15 +56,14 @@ export default function MoreScreen() {
     );
   }
 
+  const settingsSubtitle = can(role, 'editPayRules')
+    ? 'Locations, pay rules, notifications'
+    : can(role, 'manageSchedule')
+      ? 'Locations, notifications'
+      : 'Notifications, preferences';
+
   rows.push(
-    {
-      key: 'settings',
-      icon: 'gearshape.fill',
-      tint: '#687076',
-      title: 'Settings',
-      subtitle: role === 'admin' ? 'Locations, rules, notifications' : 'Notifications, preferences',
-      href: '/more/settings',
-    },
+    { key: 'settings', icon: 'gearshape.fill', tint: '#687076', title: 'Settings', subtitle: settingsSubtitle, href: '/more/settings' },
     { key: 'help', icon: 'questionmark.circle.fill', title: 'Help & Support', href: '/more/help' }
   );
 
@@ -74,7 +73,7 @@ export default function MoreScreen() {
       headerImage={
         <ScreenHeader
           title="More"
-          subtitle={me ? `${me.name} · ${role === 'admin' ? 'Admin' : 'Employee'}` : undefined}
+          subtitle={me && role ? `${me.name} · ${ROLE_LABEL[role]}` : undefined}
         />
       }>
       <Card style={styles.menu}>
