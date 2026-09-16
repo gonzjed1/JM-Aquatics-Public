@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -8,13 +8,16 @@ export function StatTile({
   value,
   label,
   color,
+  onPress,
 }: {
   value: string | number;
   label: string;
   /** Colours the number only; the label stays neutral. */
   color?: string;
+  /** Makes the tile a button that opens the detail behind the number. */
+  onPress?: () => void;
 }) {
-  return (
+  const body = (
     <ThemedView style={styles.tile}>
       <ThemedText type="title" style={[styles.value, color ? { color } : undefined]}>
         {value}
@@ -22,9 +25,24 @@ export function StatTile({
       <ThemedText style={styles.label}>{label}</ThemedText>
     </ThemedView>
   );
+
+  if (!onPress) return body;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${value} ${label}`}
+      style={({ pressed }) => [styles.pressable, pressed && styles.pressed]}>
+      {body}
+    </Pressable>
+  );
 }
 
 const styles = StyleSheet.create({
+  pressable: {
+    flex: 1,
+  },
   tile: {
     flex: 1,
     alignItems: 'center',
@@ -44,5 +62,8 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     opacity: 0.7,
     textAlign: 'center',
+  },
+  pressed: {
+    opacity: 0.6,
   },
 });

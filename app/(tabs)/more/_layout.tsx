@@ -43,6 +43,12 @@ export default function MoreLayout() {
 
       <Stack.Protected guard={can(role, 'manageStaff')}>
         <Stack.Screen name="staff" />
+        <Stack.Screen name="staff-today" />
+      </Stack.Protected>
+
+      {/* The availability board behind Home's Open Shifts tile and the unfilled-shift banner. */}
+      <Stack.Protected guard={can(role, 'manageSchedule')}>
+        <Stack.Screen name="open-shifts" />
       </Stack.Protected>
 
       <Stack.Protected guard={can(role, 'approveRequests')}>
