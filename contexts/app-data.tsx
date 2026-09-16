@@ -68,6 +68,8 @@ type AppData = {
   pendingOffers: ShiftOffer[];
   activity: ActivityItem[];
   conversations: Conversation[];
+  /** The DM between two people, created empty if it doesn't exist yet. Returns its id. */
+  openDm: (meId: string, otherId: string) => string;
   payroll: PayrollLine[];
   /** staffId → weekdays (0 = Sun … 6 = Sat) the person said they can usually work. */
   availability: Record<string, number[]>;
@@ -151,6 +153,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
   const [availability, setAvailability] = useState<Record<string, number[]>>({});
   const [shiftResponses, setShiftResponses] = useState<ShiftResponses>(SHIFT_RESPONSES);
   const [notifications, setNotifications] = useState<AppNotification[]>(NOTIFICATIONS);
+  const [conversations, setConversations] = useState<Conversation[]>(CONVERSATIONS);
 
   const staffById = useCallback((id: string) => staff.find((s) => s.id === id), [staff]);
   const firstName = useCallback((id: string) => staffById(id)?.short.split(' ')[0] ?? id, [staffById]);
@@ -193,7 +196,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
   const clockIn = useCallback(
     (staffId: string, location: Location) => {
       setPunches((prev) => [...prev, { id: newId('p'), staffId, kind: 'in', at: nextPunchTime(prev, staffId), location }]);
-      logActivity({ kind: 'punch', who: firstName(staffId), text: `Clocked in at ${location}` });
+      logActivity({ kind: 'punch', who: firstName(staffId), staffId, text: `Clocked in at ${location}` });
     },
     [firstName, logActivity]
   );
@@ -203,7 +206,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       const last = punchesFor(staffId).at(-1);
       const location = last?.location ?? 'LA Fitness Bowie';
       setPunches((prev) => [...prev, { id: newId('p'), staffId, kind: 'out', at: nextPunchTime(prev, staffId), location }]);
-      logActivity({ kind: 'punch', who: firstName(staffId), text: `Clocked out at ${location}` });
+      logActivity({ kind: 'punch', who: firstName(staffId), staffId, text: `Clocked out at ${location}` });
     },
     [firstName, logActivity, punchesFor]
   );
@@ -308,6 +311,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         logActivity({
           kind: 'response',
           who: firstName(staffId),
+          staffId,
           text: `${answer === 'yes' ? '✓ Available' : '✗ Not available'} for ${shiftLabel(shift)}`,
         });
       }
@@ -321,7 +325,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       if (!shift || shift.assigned.includes(staffId) || !isOpen(shift)) return;
       const assigned = [...shift.assigned, staffId];
       setShifts((prev) => prev.map((s) => (s.id === shiftId ? { ...s, assigned } : s)));
-      logActivity({ kind: 'shift', who: actor, text: `Assigned ${firstName(staffId)} to ${shiftLabel(shift)}` });
+      logActivity({ kind: 'shift', who: actor, staffId, text: `Assigned ${firstName(staffId)} to ${shiftLabel(shift)}` });
 
       // That was the last slot: anyone else who offered is off the list now, and
       // hears so on their Home activity rather than just watching the shift vanish.
@@ -372,10 +376,11 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     (person: NewStaff) => {
       const name = person.name.trim();
       const [first, last = ''] = name.split(/\s+/);
+      const id = newId('u');
       setStaff((prev) => [
         ...prev,
         {
-          id: newId('u'),
+          id,
           name,
           short: last ? `${first} ${last[0]}.` : first,
           role: 'worker',
@@ -384,7 +389,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
           email: `${first.toLowerCase()}@jmaquatics.com`,
         },
       ]);
-      logActivity({ kind: 'staff', who: actor, text: `Added ${name} to the team` });
+      logActivity({ kind: 'staff', who: actor, staffId: id, text: `Added ${name} to the team` });
     },
     [actor, logActivity]
   );
@@ -397,6 +402,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       logActivity({
         kind: 'staff',
         who: actor,
+        staffId,
         text: `Made ${person.name} ${nextRole === 'admin' ? 'an admin' : 'a worker'}`,
       });
     },
@@ -411,6 +417,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         logActivity({
           kind: target.kind === 'punch-correction' ? 'correction' : 'swap',
           who: actor,
+          staffId: target.staffId,
           text: `${status === 'approved' ? 'Approved' : 'Denied'} ${firstName(target.staffId)}'s ${target.summary.toLowerCase()}`,
         });
       }
@@ -421,9 +428,28 @@ export function AppDataProvider({ children }: PropsWithChildren) {
   const submitAvailability = useCallback(
     (staffId: string, weekdays: number[]) => {
       setAvailability((prev) => ({ ...prev, [staffId]: weekdays }));
-      logActivity({ kind: 'availability', who: firstName(staffId), text: 'Availability submitted' });
+      logActivity({ kind: 'availability', who: firstName(staffId), staffId, text: 'Availability submitted' });
     },
     [firstName, logActivity]
+  );
+
+  // --- messages (shell) -------------------------------------------------------------
+
+  const openDm = useCallback(
+    (meId: string, otherId: string) => {
+      const existing = conversations.find(
+        (c) => !c.group && c.participants.length === 2 && c.participants.includes(meId) && c.participants.includes(otherId)
+      );
+      if (existing) return existing.id;
+      const id = `dm-${[meId, otherId].sort().join('-')}`;
+      setConversations((prev) =>
+        prev.some((c) => c.id === id)
+          ? prev
+          : [...prev, { id, name: '', group: false, participants: [meId, otherId], unread: 0, messages: [] }]
+      );
+      return id;
+    },
+    [conversations]
   );
 
   const pendingRequests = useMemo(() => requests.filter((r) => r.status === 'pending'), [requests]);
@@ -440,7 +466,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       pendingRequests,
       pendingOffers,
       activity,
-      conversations: CONVERSATIONS,
+      conversations,
+      openDm,
       payroll: PAYROLL,
       availability,
       shiftResponses,
@@ -468,7 +495,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     }),
     [
       staff, staffById, shifts, punches, requests, pendingRequests, pendingOffers, activity, availability,
-      shiftResponses, notifications,
+      shiftResponses, notifications, conversations, openDm,
       isClockedIn, punchesFor, clockedInNow, shiftsFor, openShiftsFor, awaitingFor, answerFor, responsesFor,
       notificationsFor, unreadNotificationsFor,
       clockIn, clockOut, addShift, addStaff, setStaffRole, setRequestStatus, submitAvailability,

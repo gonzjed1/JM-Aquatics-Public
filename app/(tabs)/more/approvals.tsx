@@ -6,6 +6,7 @@ import { HEADER_BG, ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { ContactButtons } from '@/components/ui/contact-buttons';
 import { ListRow } from '@/components/ui/list-row';
 import { useAppData } from '@/contexts/app-data';
 import { formatWallClock } from '@/data/format';
@@ -50,7 +51,8 @@ export default function ApprovalsScreen() {
           pending.map((r, i) => (
             <View key={r.id} style={[styles.item, i < pending.length - 1 && styles.divider]}>
               <View style={styles.itemHead}>
-                <ThemedText type="defaultSemiBold">{nameOf(r.staffId)}</ThemedText>
+                <ThemedText type="defaultSemiBold" style={styles.grow}>{nameOf(r.staffId)}</ThemedText>
+                {staffById(r.staffId) ? <ContactButtons person={staffById(r.staffId)!} size="sm" /> : null}
                 <ThemedText style={styles.time}>{formatWallClock(new Date(r.at))}</ThemedText>
               </View>
               <ThemedText style={styles.kind}>{KIND_LABEL[r.kind]}</ThemedText>
@@ -90,7 +92,8 @@ export default function ApprovalsScreen() {
             return (
               <View key={`${shift.id}:${staff.id}`} style={[styles.item, i < pendingOffers.length - 1 && styles.divider]}>
                 <View style={styles.itemHead}>
-                  <ThemedText type="defaultSemiBold">{staff.name}</ThemedText>
+                  <ThemedText type="defaultSemiBold" style={styles.grow}>{staff.name}</ThemedText>
+                  <ContactButtons person={staff} size="sm" />
                   <ThemedText style={styles.time}>{room === 1 ? '1 slot left' : `${room} slots left`}</ThemedText>
                 </View>
                 <ThemedText style={styles.kind}>✓ Available</ThemedText>
@@ -160,7 +163,7 @@ const styles = StyleSheet.create({
   itemHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 10,
   },
   time: {
     fontSize: 12,

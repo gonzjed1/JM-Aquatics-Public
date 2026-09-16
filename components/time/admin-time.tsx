@@ -6,11 +6,12 @@ import { HEADER_BG, ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { ContactButtons } from '@/components/ui/contact-buttons';
 import { Segmented } from '@/components/ui/segmented';
 import { StatusDot } from '@/components/ui/status-dot';
 import { useAppData } from '@/contexts/app-data';
 import { formatWallClock, toISODate } from '@/data/format';
-import type { Punch } from '@/data/mock-seed';
+import type { Punch, StaffMember } from '@/data/mock-seed';
 
 type View_ = 'live' | 'all';
 
@@ -60,6 +61,7 @@ export function AdminTime() {
               <PunchLine
                 key={punch.id}
                 name={nameOf(punch.staffId)}
+                person={staffById(punch.staffId)}
                 punch={punch}
                 last={i === open.length - 1}
               />
@@ -93,12 +95,15 @@ export function AdminTime() {
                     key={person.id}
                     style={[styles.lookupRow, i < matches.length - 1 && styles.divider]}>
                     <StatusDot tone={onClock ? 'good' : 'muted'} />
-                    <ThemedText style={styles.grow}>{person.name}</ThemedText>
-                    <ThemedText style={styles.muted}>
-                      {last
-                        ? `${onClock ? 'In' : 'Out'} since ${formatWallClock(new Date(last.at))}`
-                        : 'No punches today'}
-                    </ThemedText>
+                    <View style={styles.grow}>
+                      <ThemedText>{person.name}</ThemedText>
+                      <ThemedText style={styles.muted}>
+                        {last
+                          ? `${onClock ? 'In' : 'Out'} since ${formatWallClock(new Date(last.at))}`
+                          : 'No punches today'}
+                      </ThemedText>
+                    </View>
+                    <ContactButtons person={person} size="sm" />
                   </View>
                 );
               })}
@@ -141,11 +146,14 @@ export function AdminTime() {
 function PunchLine({
   name,
   detail,
+  person,
   punch,
   last,
 }: {
   name: string;
   detail?: string;
+  /** When given, the row offers call / message. */
+  person?: StaffMember;
   punch: Punch;
   last: boolean;
 }) {
@@ -156,6 +164,7 @@ function PunchLine({
         <ThemedText>{name}</ThemedText>
         {detail ? <ThemedText style={styles.detail}>{detail}</ThemedText> : null}
       </View>
+      {person ? <ContactButtons person={person} size="sm" /> : null}
       <ThemedText type="defaultSemiBold">{formatWallClock(new Date(punch.at))}</ThemedText>
     </View>
   );

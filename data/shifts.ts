@@ -6,6 +6,11 @@ export function shiftLabel(shift: Shift): string {
   return `${formatDayDate(shift.date)} · ${formatTimeRange(shift.start, shift.end)} · ${shift.location}`;
 }
 
+/** '9:00 AM – 12:00 PM · LA Fitness Bowie' — time always travels with the location. */
+export function shiftTimePlace(shift: Shift): string {
+  return `${formatTimeRange(shift.start, shift.end)} · ${shift.location}`;
+}
+
 export function openSlots(shift: Shift): number {
   return Math.max(0, shift.slots - shift.assigned.length);
 }

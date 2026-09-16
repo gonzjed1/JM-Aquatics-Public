@@ -7,6 +7,7 @@ import { HEADER_BG, ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { ContactButtons } from '@/components/ui/contact-buttons';
 import { ListRow } from '@/components/ui/list-row';
 import { ROLE_LABEL, can } from '@/constants/permissions';
 import { useAppData } from '@/contexts/app-data';
@@ -121,6 +122,7 @@ export default function StaffScreen() {
                   subtitle={`${person.phone} · ${person.email}`}
                   right={
                     <View style={styles.rowRight}>
+                      <ContactButtons person={person} size="sm" />
                       <View style={[styles.pill, isAdmin && styles.pillAdmin]}>
                         <ThemedText style={[styles.pillText, isAdmin && styles.pillTextAdmin]}>
                           {isAdmin ? ROLE_LABEL.admin : 'Instructor'}

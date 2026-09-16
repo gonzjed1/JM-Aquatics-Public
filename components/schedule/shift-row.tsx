@@ -3,8 +3,9 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { StatusDot, fillTone } from '@/components/ui/status-dot';
-import { formatDayDate, formatTimeRange } from '@/data/format';
+import { formatDayDate } from '@/data/format';
 import type { Shift } from '@/data/mock-seed';
+import { shiftTimePlace } from '@/data/shifts';
 
 type Props = {
   shift: Shift;
@@ -33,8 +34,7 @@ export function ShiftRow({ shift, showFill = false, detail, tag, last = false, o
             </View>
           ) : null}
         </View>
-        <ThemedText>{formatTimeRange(shift.start, shift.end)}</ThemedText>
-        <ThemedText style={styles.muted}>{shift.location}</ThemedText>
+        <ThemedText>{shiftTimePlace(shift)}</ThemedText>
         {detail ? <ThemedText style={styles.muted}>{detail}</ThemedText> : null}
       </View>
       {showFill ? (

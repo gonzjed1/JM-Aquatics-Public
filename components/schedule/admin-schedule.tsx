@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import ParallaxScrollView from '@/components/parallax-scroll-view';
+import { AssignedPeople } from '@/components/schedule/assigned-people';
 import { ShiftResponses, responseSummary } from '@/components/schedule/shift-responses';
 import { ShiftRow } from '@/components/schedule/shift-row';
 import { HEADER_BG, ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { ContactButtons } from '@/components/ui/contact-buttons';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ListRow } from '@/components/ui/list-row';
 import { Segmented } from '@/components/ui/segmented';
@@ -29,7 +31,7 @@ type View_ = 'week' | 'day' | 'staff';
  * with an Assign button on the ✓ names while the shift has room.
  */
 export function AdminSchedule() {
-  const { today, weekStart: initialWeekStart, shifts, staff, staffById, addShift, responsesFor } = useAppData();
+  const { today, weekStart: initialWeekStart, shifts, staff, addShift, responsesFor } = useAppData();
   const [view, setView] = useState<View_>('week');
   const [weekStart, setWeekStart] = useState(initialWeekStart);
   const [day, setDay] = useState(today);
@@ -43,7 +45,6 @@ export function AdminSchedule() {
   const weekShifts = shifts.filter((s) => s.date >= weekStart && s.date <= weekEnd).sort(byStart);
   const dayShifts = shifts.filter((s) => s.date === day).sort(byStart);
   const workers = staff.filter((s) => s.role === 'worker');
-  const names = (ids: string[]) => ids.map((id) => staffById(id)?.short ?? id).join(', ');
   const isUpcoming = (date: string) => date >= today;
 
   const switchView = (next: View_) => {
@@ -145,21 +146,12 @@ export function AdminSchedule() {
                 const upcoming = isUpcoming(shift.date);
                 return (
                   <View key={shift.id}>
-                    <ShiftRow
-                      shift={shift}
-                      showFill
-                      detail={
-                        shift.assigned.length
-                          ? `On it: ${names(shift.assigned)}${shift.assigned.length < shift.slots ? ` · ${shift.slots - shift.assigned.length} open` : ''}`
-                          : `${shift.slots} open`
-                      }
-                      last={isLast || upcoming}
-                    />
-                    {upcoming ? (
-                      <View style={[styles.panelWrap, !isLast && styles.divider]}>
-                        <ShiftResponses shift={shift} canAssign />
-                      </View>
-                    ) : null}
+                    <ShiftRow shift={shift} showFill last />
+                    <View style={[styles.panelWrap, !isLast && styles.divider]}>
+                      <ThemedText style={styles.rosterTitle}>On it</ThemedText>
+                      <AssignedPeople shift={shift} />
+                      {upcoming ? <ShiftResponses shift={shift} canAssign /> : null}
+                    </View>
                   </View>
                 );
               })
@@ -185,6 +177,7 @@ export function AdminSchedule() {
                     ? `${theirs.length} shift${theirs.length === 1 ? '' : 's'} this week${next ? ` · next ${formatDayDate(next.date)}` : ''}`
                     : 'No shifts this week'
                 }
+                right={<ContactButtons person={person} size="sm" />}
               />
             );
           })}
@@ -305,6 +298,12 @@ const styles = StyleSheet.create({
   },
   panelWrap: {
     paddingBottom: 8,
+  },
+  rosterTitle: {
+    fontSize: 13,
+    lineHeight: 18,
+    opacity: 0.65,
+    paddingLeft: 4,
   },
   divider: {
     borderBottomWidth: StyleSheet.hairlineWidth,

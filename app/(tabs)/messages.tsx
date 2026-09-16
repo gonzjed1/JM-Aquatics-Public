@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import ParallaxScrollView from '@/components/parallax-scroll-view';
@@ -19,23 +20,36 @@ type View_ = 'direct' | 'groups';
  */
 export default function MessagesScreen() {
   const me = useMe();
-  const { conversations, staffById, today } = useAppData();
+  const { conversations, staffById, today, openDm } = useAppData();
   const [view, setView] = useState<View_>('direct');
   const [openId, setOpenId] = useState<string | null>(null);
   const [notice, setNotice] = useState(false);
+  const meId = me?.id ?? '';
+
+  // A "message" button elsewhere lands here with ?dm=<staffId>; open that thread straight away.
+  const { dm, t } = useLocalSearchParams<{ dm?: string; t?: string }>();
+  useEffect(() => {
+    if (!dm || !meId) return;
+    setView('direct');
+    setOpenId(openDm(meId, dm));
+    // `t` changes on every press so the same person can be opened twice in a row.
+  }, [dm, t, meId, openDm]);
 
   if (!me) return null;
 
-  const lastOf = (c: Conversation) => c.messages[c.messages.length - 1];
+  // Empty threads (just opened from a contact button) sort first, like a fresh draft.
+  const lastOf = (c: Conversation) => c.messages[c.messages.length - 1] as Conversation['messages'][number] | undefined;
+  const lastAt = (c: Conversation) => lastOf(c)?.at ?? '9999';
   const mine = conversations
     .filter((c) => c.participants.includes(me.id) && c.group === (view === 'groups'))
-    .sort((a, b) => lastOf(b).at.localeCompare(lastOf(a).at));
+    .sort((a, b) => lastAt(b).localeCompare(lastAt(a)));
 
   const firstName = (id: string) => staffById(id)?.short.split(' ')[0] ?? id;
   const titleOf = (c: Conversation) =>
     c.group ? c.name : (staffById(c.participants.find((p) => p !== me.id) ?? '')?.short ?? 'Unknown');
   const previewOf = (c: Conversation) => {
     const last = lastOf(c);
+    if (!last) return 'No messages yet';
     return c.group ? `${firstName(last.from)}: ${last.text}` : last.text;
   };
   const when = (iso: string) => {
@@ -98,7 +112,7 @@ export default function MessagesScreen() {
                     </ThemedText>
                   </View>
                   <View style={styles.meta}>
-                    <ThemedText style={styles.time}>{when(lastOf(c).at)}</ThemedText>
+                    <ThemedText style={styles.time}>{lastOf(c) ? when(lastOf(c)!.at) : ''}</ThemedText>
                     {c.unread ? (
                       <View style={styles.badge}>
                         <ThemedText style={styles.badgeText}>{c.unread}</ThemedText>

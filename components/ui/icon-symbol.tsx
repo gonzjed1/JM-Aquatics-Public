@@ -24,6 +24,7 @@ const MAPPING = {
   calendar: 'calendar-today',
   'clock.fill': 'access-time',
   'message.fill': 'chat',
+  'phone.fill': 'call',
   'line.3.horizontal': 'menu',
   // More menu + actions
   'gearshape.fill': 'settings',

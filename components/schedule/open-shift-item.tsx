@@ -2,9 +2,9 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { formatDayDate, formatTimeRange } from '@/data/format';
+import { formatDayDate } from '@/data/format';
 import type { Shift, ShiftAnswer } from '@/data/mock-seed';
-import { openSlots, shiftLabel } from '@/data/shifts';
+import { openSlots, shiftLabel, shiftTimePlace } from '@/data/shifts';
 
 type Props = {
   shift: Shift;
@@ -31,10 +31,8 @@ export function OpenShiftItem({ shift, answer, isNew = false, onAnswer, last = f
             </View>
           ) : null}
         </View>
-        <ThemedText>{formatTimeRange(shift.start, shift.end)}</ThemedText>
-        <ThemedText style={styles.muted}>
-          {shift.location} · {open} open
-        </ThemedText>
+        <ThemedText>{shiftTimePlace(shift)}</ThemedText>
+        <ThemedText style={styles.muted}>{open === 1 ? '1 open slot' : `${open} open slots`}</ThemedText>
         {answer ? (
           <ThemedText style={[styles.answer, answer === 'yes' ? styles.yesText : styles.noText]}>
             {answer === 'yes' ? 'You said ✓ Available' : 'You said ✗ Not available'}

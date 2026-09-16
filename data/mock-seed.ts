@@ -81,6 +81,8 @@ export type ActivityItem = {
   id: string;
   kind: ActivityKind;
   who: string; // display name
+  /** The employee the line is about, when there is one — lets admin rows offer call / message. */
+  staffId?: string;
   text: string;
   at: string; // ISO
 };
@@ -213,13 +215,13 @@ export const REQUESTS: ApprovalRequest[] = [
 // --- activity feed (owner / admin Home) -----------------------------------------------
 
 export const ACTIVITY: ActivityItem[] = [
-  { id: 'a0', kind: 'response', who: 'Dana', text: '✓ Available for Thu, Aug 7 · 9:00 AM – 12:00 PM · LA Fitness Bowie', at: at('14:30') },
-  { id: 'a1', kind: 'availability', who: 'Sam', text: 'Availability submitted', at: at('14:14') },
-  { id: 'a2', kind: 'correction', who: 'Tony', text: 'Punch correction request', at: at('13:47') },
+  { id: 'a0', kind: 'response', who: 'Dana', staffId: 'dana', text: '✓ Available for Thu, Aug 7 · 9:00 AM – 12:00 PM · LA Fitness Bowie', at: at('14:30') },
+  { id: 'a1', kind: 'availability', who: 'Sam', staffId: 'sam', text: 'Availability submitted', at: at('14:14') },
+  { id: 'a2', kind: 'correction', who: 'Tony', staffId: 'tony', text: 'Punch correction request', at: at('13:47') },
   { id: 'a3', kind: 'message', who: 'All Staff', text: 'New message in All Staff', at: at('09:15') },
-  { id: 'a4', kind: 'punch', who: 'Alex', text: 'Clocked in at LA Fitness Bowie', at: at('08:12') },
-  { id: 'a5', kind: 'punch', who: 'Chris', text: 'Clocked in at LA Fitness Bowie', at: at('08:07') },
-  { id: 'a6', kind: 'punch', who: 'Sarah', text: 'Clocked in at LA Fitness Bowie', at: at('08:01') },
+  { id: 'a4', kind: 'punch', who: 'Alex', staffId: 'alex', text: 'Clocked in at LA Fitness Bowie', at: at('08:12') },
+  { id: 'a5', kind: 'punch', who: 'Chris', staffId: 'chris', text: 'Clocked in at LA Fitness Bowie', at: at('08:07') },
+  { id: 'a6', kind: 'punch', who: 'Sarah', staffId: 'sarah', text: 'Clocked in at LA Fitness Bowie', at: at('08:01') },
 ];
 
 // --- messages (shell only — real messaging is a later phase) ----------------------------

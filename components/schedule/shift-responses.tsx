@@ -2,37 +2,41 @@ import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
+import { ContactButtons } from '@/components/ui/contact-buttons';
 import { StatusDot, TONE_COLORS, type Tone } from '@/components/ui/status-dot';
 import { useAppData, type ResponseGroups } from '@/contexts/app-data';
 import type { Shift, StaffMember } from '@/data/mock-seed';
-import { openSlots } from '@/data/shifts';
+import { openSlots, shiftLabel } from '@/data/shifts';
 
-/** '✓ 2 · ✗ 1 · 9 pending' — the one-line version for a collapsed row. */
+/** '✓ 2 · ✗ 1 · 9 no response' — the one-line version for a collapsed row. */
 export function responseSummary(groups: ResponseGroups): string {
-  return `✓ ${groups.yes.length} · ✗ ${groups.no.length} · ${groups.pending.length} pending`;
+  return `✓ ${groups.yes.length} · ✗ ${groups.no.length} · ${groups.pending.length} no response`;
 }
 
 /**
  * Who has answered a shift, in the order Jed wants to read it: available
- * first, then not available, then everyone still pending. With `canAssign`,
- * each available person gets an Assign button while the shift has room.
+ * first, then not available, then everyone who hasn't said. Every name has
+ * call / message beside it; with `canAssign`, each available person also gets
+ * an Assign button while the shift has room.
  */
 export function ShiftResponses({ shift, canAssign = false }: { shift: Shift; canAssign?: boolean }) {
   const { responsesFor, assignToShift } = useAppData();
   const groups = responsesFor(shift.id);
   const room = openSlots(shift) > 0;
+  const label = shiftLabel(shift);
 
   return (
     <View style={styles.panel}>
       <Group
-        title="Available ✓"
+        title="Available"
         tone="good"
         people={groups.yes}
         empty="No one yet"
         onAssign={canAssign && room ? (id) => assignToShift(shift.id, id) : undefined}
+        assignLabel={(p) => `Assign ${p.short} to ${label}`}
       />
-      <Group title="Not available ✗" tone="bad" people={groups.no} empty="No one" />
-      <Group title="Pending" tone="muted" people={groups.pending} empty="Everyone has answered" />
+      <Group title="Not available" tone="bad" people={groups.no} empty="No one" />
+      <Group title="No response" tone="muted" people={groups.pending} empty="Everyone has answered" />
     </View>
   );
 }
@@ -43,12 +47,14 @@ function Group({
   people,
   empty,
   onAssign,
+  assignLabel,
 }: {
   title: string;
   tone: Tone;
   people: StaffMember[];
   empty: string;
   onAssign?: (staffId: string) => void;
+  assignLabel?: (person: StaffMember) => string;
 }) {
   return (
     <View style={styles.group}>
@@ -62,15 +68,23 @@ function Group({
 
       {people.length === 0 ? (
         <ThemedText style={styles.muted}>{empty}</ThemedText>
-      ) : onAssign ? (
+      ) : (
         people.map((person) => (
           <View key={person.id} style={styles.personRow}>
             <ThemedText style={styles.grow}>{person.short}</ThemedText>
-            <Button label="Assign" tone="success" variant="soft" size="sm" onPress={() => onAssign(person.id)} />
+            <ContactButtons person={person} size="sm" />
+            {onAssign ? (
+              <Button
+                label="Assign"
+                tone="success"
+                variant="soft"
+                size="sm"
+                accessibilityLabel={assignLabel?.(person)}
+                onPress={() => onAssign(person.id)}
+              />
+            ) : null}
           </View>
         ))
-      ) : (
-        <ThemedText style={styles.names}>{people.map((p) => p.short).join(', ')}</ThemedText>
       )}
     </View>
   );
@@ -100,17 +114,12 @@ const styles = StyleSheet.create({
     opacity: 0.55,
     paddingLeft: 16,
   },
-  names: {
-    fontSize: 14,
-    lineHeight: 20,
-    paddingLeft: 16,
-  },
   personRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     paddingLeft: 16,
-    paddingVertical: 2,
+    paddingVertical: 3,
   },
   grow: {
     flex: 1,

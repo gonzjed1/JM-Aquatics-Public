@@ -7,6 +7,7 @@ import { HEADER_BG, ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { ContactButtons } from '@/components/ui/contact-buttons';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { KeyValue } from '@/components/ui/key-value';
 import { Segmented } from '@/components/ui/segmented';
@@ -96,7 +97,10 @@ export default function PayrollScreen() {
           {selected ? (
             <Card>
               <ThemedText type="defaultSemiBold">Estimated Gross Pay</ThemedText>
-              <ThemedText style={styles.muted}>{selected.staff.name}</ThemedText>
+              <View style={styles.personLine}>
+                <ThemedText style={[styles.muted, styles.grow]}>{selected.staff.name}</ThemedText>
+                <ContactButtons person={selected.staff} size="sm" />
+              </View>
               <ThemedText type="title" style={styles.amount}>
                 {formatCurrency(selected.gross)}
               </ThemedText>
@@ -169,6 +173,14 @@ const styles = StyleSheet.create({
   },
   chipTextOn: {
     color: '#FFFFFF',
+  },
+  personLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  grow: {
+    flex: 1,
   },
   muted: {
     opacity: 0.65,
