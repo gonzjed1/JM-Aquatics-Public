@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ActivityRow } from '@/components/activity-row';
 import { greeting } from '@/components/home/greeting';
@@ -10,11 +10,12 @@ import { HEADER_BG, HeaderIconButton, ScreenHeader } from '@/components/screen-h
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { StatTile } from '@/components/ui/stat-tile';
 import { StatusDot, fillTone } from '@/components/ui/status-dot';
 import { byStart, useAppData, useMe } from '@/contexts/app-data';
 import { addDays, formatDayDate, formatDayDateYear } from '@/data/format';
-import { isOpen, openSlots, shiftTimePlace } from '@/data/shifts';
+import { isOpen, openSlots, shiftLabel, shiftTimePlace } from '@/data/shifts';
 
 /**
  * Jed's dashboard, top to bottom: today's numbers (each tile opens its
@@ -32,6 +33,8 @@ export function AdminHome() {
   const staffToday = new Set(todays.flatMap((s) => s.assigned)).size;
   const openShifts = weekShifts.filter(isOpen).length;
   const openUpcoming = shifts.filter((s) => s.date >= today && isOpen(s)).sort(byStart);
+  // Open slots inside the next 48 hours — today and tomorrow on the frozen demo day.
+  const urgent = openUpcoming.filter((s) => s.date <= addDays(today, 1));
 
   return (
     <ParallaxScrollView
@@ -49,6 +52,26 @@ export function AdminHome() {
           onPress={() => router.push('/more/settings')}
         />
       }>
+      {urgent.length > 0 ? (
+        <Pressable
+          onPress={() => router.push({ pathname: '/more/open-shifts', params: { shift: urgent[0].id } })}
+          accessibilityRole="button"
+          accessibilityLabel="Unfilled shift — open availability"
+          style={({ pressed }) => [styles.banner, pressed && styles.bannerPressed]}>
+          <IconSymbol name="bell.fill" size={22} color="#FFFFFF" />
+          <View style={styles.grow}>
+            <ThemedText style={styles.bannerTitle}>
+              {urgent.length === 1 ? 'Unfilled shift in the next 48 hours' : `${urgent.length} unfilled shifts in the next 48 hours`}
+            </ThemedText>
+            <ThemedText style={styles.bannerText}>
+              {shiftLabel(urgent[0])} · {openSlots(urgent[0]) === 1 ? '1 slot open' : `${openSlots(urgent[0])} slots open`}
+              {urgent.length > 1 ? ` · and ${urgent.length - 1} more` : ''}
+            </ThemedText>
+          </View>
+          <IconSymbol name="chevron.right" size={22} color="#FFFFFF" />
+        </Pressable>
+      ) : null}
+
       <Card>
         <ThemedText type="defaultSemiBold">{"Today's Overview"}</ThemedText>
         <ThemedText style={styles.muted}>{formatDayDateYear(today)}</ThemedText>
@@ -130,6 +153,28 @@ export function AdminHome() {
 }
 
 const styles = StyleSheet.create({
+  banner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#C0392B',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  bannerPressed: {
+    opacity: 0.85,
+  },
+  bannerTitle: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  bannerText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    lineHeight: 18,
+    opacity: 0.92,
+  },
   muted: {
     opacity: 0.65,
   },
