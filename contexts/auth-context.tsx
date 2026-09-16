@@ -4,59 +4,92 @@ import { createContext, useCallback, useContext, useMemo, useState, type PropsWi
  * ============================================================================
  * DEMO GATE ONLY — THIS IS NOT SECURITY.
  *
- * The passcode ships in the app bundle, so anyone can read it. It exists so
- * the owner and admin views can be shown in a demo before real auth lands.
- * Replace it with MSAL / Entra ID before this app handles anything real.
+ * The accounts, the password and the PIN below ship in the app bundle, so
+ * anyone can read them. They exist so every role can be shown in a demo before
+ * real auth lands. Replace this with MSAL / Entra ID before the app handles
+ * anything real: `signIn` and DEMO_ACCOUNTS go, everything else stays.
  *
- * Swapping in real auth means changing what sets `role` inside AuthProvider.
- * Every screen consumes the same `useAuth()` interface either way, so nothing
- * outside this file needs to change.
+ * Screens never learn about accounts. They read `role` (what the person may
+ * do) and `userId` (who they are) from `useAuth()`, and both always come from
+ * the matched account — never from which button was tapped.
  * ============================================================================
  */
-export const TEMP_ADMIN_PASSCODE = '69420';
+
+/** Every demo account signs in with this. */
+export const TEMP_DEMO_PASSWORD = '69420';
+/** Second step on the Admin path. Same value as the password for the demo; kept separate so it can diverge. */
+export const TEMP_ADMIN_PIN = '69420';
 
 /** The three tiers. What each may do lives in constants/permissions.ts. */
 export type Role = 'owner' | 'admin' | 'worker';
 
-/** The passcode-gated personas; workers sign in without one. */
-export type StaffRole = Exclude<Role, 'worker'>;
+type DemoAccount = {
+  email: string;
+  password: string;
+  /** The staff record in data/mock-seed.ts this account belongs to. */
+  staffId: string;
+  role: Role;
+};
+
+// Not shown anywhere on screen or in the README on purpose.
+const DEMO_ACCOUNTS: DemoAccount[] = [
+  { email: 'jed@jmaquatics.com', password: TEMP_DEMO_PASSWORD, staffId: 'jed', role: 'owner' },
+  { email: 'mike@jmaquatics.com', password: TEMP_DEMO_PASSWORD, staffId: 'mike', role: 'admin' },
+  { email: 'sam@jmaquatics.com', password: TEMP_DEMO_PASSWORD, staffId: 'sam', role: 'worker' },
+];
+
+function findAccount(email: string, password: string): DemoAccount | undefined {
+  const wanted = email.trim().toLowerCase();
+  return DEMO_ACCOUNTS.find((a) => a.email === wanted && a.password === password);
+}
 
 type AuthContextValue = {
   /** null means signed out — the login screen is the only reachable route. */
   role: Role | null;
+  /** Staff id of the signed-in person; null while signed out. */
+  userId: string | null;
   isSignedIn: boolean;
-  signInAsWorker: () => void;
-  /** Returns false when the passcode is wrong, so the caller can show an error. */
-  signInWithPasscode: (passcode: string, as: StaffRole) => boolean;
+  /** True when the email + password match an account. Changes nothing. */
+  verifyCredentials: (email: string, password: string) => boolean;
+  /** True when the PIN is right. Changes nothing. */
+  verifyPin: (pin: string) => boolean;
+  /** Signs in as the account those credentials belong to. False if they match nothing. */
+  signIn: (email: string, password: string) => boolean;
   signOut: () => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: PropsWithChildren) {
-  const [role, setRole] = useState<Role | null>(null);
+  const [session, setSession] = useState<{ role: Role; userId: string } | null>(null);
 
-  const signInAsWorker = useCallback(() => setRole('worker'), []);
+  const verifyCredentials = useCallback(
+    (email: string, password: string) => findAccount(email, password) !== undefined,
+    []
+  );
 
-  const signInWithPasscode = useCallback((passcode: string, as: StaffRole) => {
-    if (passcode.trim() !== TEMP_ADMIN_PASSCODE) {
-      return false;
-    }
-    setRole(as);
+  const verifyPin = useCallback((pin: string) => pin.trim() === TEMP_ADMIN_PIN, []);
+
+  const signIn = useCallback((email: string, password: string) => {
+    const account = findAccount(email, password);
+    if (!account) return false;
+    setSession({ role: account.role, userId: account.staffId });
     return true;
   }, []);
 
-  const signOut = useCallback(() => setRole(null), []);
+  const signOut = useCallback(() => setSession(null), []);
 
   const value = useMemo<AuthContextValue>(
     () => ({
-      role,
-      isSignedIn: role !== null,
-      signInAsWorker,
-      signInWithPasscode,
+      role: session?.role ?? null,
+      userId: session?.userId ?? null,
+      isSignedIn: session !== null,
+      verifyCredentials,
+      verifyPin,
+      signIn,
       signOut,
     }),
-    [role, signInAsWorker, signInWithPasscode, signOut]
+    [session, verifyCredentials, verifyPin, signIn, signOut]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

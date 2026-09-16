@@ -5,7 +5,6 @@ import { toISODate } from '@/data/format';
 import {
   ACTIVITY,
   CONVERSATIONS,
-  DEMO_USER_FOR_ROLE,
   MOCK_TODAY,
   MOCK_WEEK_START,
   NOTIFICATIONS,
@@ -102,6 +101,24 @@ function nowOnDemoDay(): string {
   return new Date(2025, 7, 7, n.getHours(), n.getMinutes(), n.getSeconds()).toISOString();
 }
 
+/**
+ * A punch time on the demo day that is guaranteed to sort after this person's
+ * existing punches that day. Without this, using the app before the seed times
+ * (Sam is clocked out at 12:01) would file a new clock-in *before* that punch,
+ * leaving the last punch an 'out' and the button stuck. Keeps the real time
+ * when it's already later, so afternoon demos read naturally.
+ */
+function nextPunchTime(existing: Punch[], staffId: string): string {
+  const now = nowOnDemoDay();
+  const latest = existing
+    .filter((p) => p.staffId === staffId && toISODate(new Date(p.at)) === MOCK_TODAY)
+    .reduce((max, p) => (p.at > max ? p.at : max), '');
+  if (latest && latest >= now) {
+    return new Date(new Date(latest).getTime() + 60_000).toISOString();
+  }
+  return now;
+}
+
 let nextId = 1000;
 const newId = (prefix: string) => `${prefix}${nextId++}`;
 
@@ -109,7 +126,7 @@ const byStart = (a: Shift, b: Shift) => `${a.date}${a.start}`.localeCompare(`${b
 const byName = (a: StaffMember, b: StaffMember) => a.name.localeCompare(b.name);
 
 export function AppDataProvider({ children }: PropsWithChildren) {
-  const { role } = useAuth();
+  const { userId } = useAuth();
 
   const [staff, setStaff] = useState<StaffMember[]>(STAFF);
   const [shifts, setShifts] = useState<Shift[]>(SHIFTS);
@@ -123,8 +140,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
   const staffById = useCallback((id: string) => staff.find((s) => s.id === id), [staff]);
   const firstName = useCallback((id: string) => staffById(id)?.short.split(' ')[0] ?? id, [staffById]);
 
-  // Owner and admin actions are credited to whoever is signed in — Jed or Mike.
-  const actor = firstName(role ? DEMO_USER_FOR_ROLE[role] : 'jed');
+  // Owner and admin actions are credited to whoever is signed in.
+  const actor = firstName(userId ?? 'jed');
 
   const logActivity = useCallback((item: Omit<ActivityItem, 'id' | 'at'>) => {
     setActivity((prev) => [{ ...item, id: newId('a'), at: nowOnDemoDay() }, ...prev]);
@@ -160,7 +177,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
 
   const clockIn = useCallback(
     (staffId: string, location: Location) => {
-      setPunches((prev) => [...prev, { id: newId('p'), staffId, kind: 'in', at: nowOnDemoDay(), location }]);
+      setPunches((prev) => [...prev, { id: newId('p'), staffId, kind: 'in', at: nextPunchTime(prev, staffId), location }]);
       logActivity({ kind: 'punch', who: firstName(staffId), text: `Clocked in at ${location}` });
     },
     [firstName, logActivity]
@@ -170,7 +187,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     (staffId: string) => {
       const last = punchesFor(staffId).at(-1);
       const location = last?.location ?? 'LA Fitness Bowie';
-      setPunches((prev) => [...prev, { id: newId('p'), staffId, kind: 'out', at: nowOnDemoDay(), location }]);
+      setPunches((prev) => [...prev, { id: newId('p'), staffId, kind: 'out', at: nextPunchTime(prev, staffId), location }]);
       logActivity({ kind: 'punch', who: firstName(staffId), text: `Clocked out at ${location}` });
     },
     [firstName, logActivity, punchesFor]
@@ -404,7 +421,7 @@ export function useAppData(): AppData {
 
 /** The signed-in person as a staff record. Null only while signed out. */
 export function useMe(): StaffMember | null {
-  const { role } = useAuth();
+  const { userId } = useAuth();
   const { staffById } = useAppData();
-  return role ? (staffById(DEMO_USER_FOR_ROLE[role]) ?? null) : null;
+  return userId ? (staffById(userId) ?? null) : null;
 }

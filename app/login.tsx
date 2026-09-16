@@ -4,6 +4,7 @@ import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  Easing,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -17,20 +18,27 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText, type ThemedTextProps } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { WaterBackground } from '@/components/water-background';
-import { useAuth, type StaffRole } from '@/contexts/auth-context';
+import { useAuth } from '@/contexts/auth-context';
 
 const LOGO = require('../design-refs/logo.webp');
 
 /** Overhead drone shot of a lap pool, cut to a seamless 12s loop. */
 const POOL_VIDEO = require('../assets/videos/pool-swimmers.mp4');
 
-/** Navy ink on the frosted cards, white over the water. Both are fixed: the */
-/** cards stay light in dark mode, so themed text would vanish on them.      */
+/** Navy ink on the frosted card, white over the water. Both are fixed: the */
+/** card stays light in dark mode, so themed text would vanish on it.       */
 const INK = '#0F2C3F';
 const ON_WATER = '#FFFFFF';
 
 /** react-native-web has no native animation driver. */
 const USE_NATIVE_DRIVER = Platform.OS !== 'web';
+
+/**
+ * Which button was tapped. It only decides whether the PIN step runs — the
+ * role a person ends up with always comes from their account.
+ */
+type Path = 'employee' | 'admin';
+type Step = 'credentials' | 'pin';
 
 function CardText(props: ThemedTextProps) {
   return <ThemedText lightColor={INK} darkColor={INK} {...props} />;
@@ -42,10 +50,26 @@ function WaterText(props: ThemedTextProps) {
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
-  const { signInAsWorker, signInWithPasscode } = useAuth();
+  const { verifyCredentials, verifyPin, signIn } = useAuth();
 
-  const [passcode, setPasscode] = useState('');
+  const [path, setPath] = useState<Path | null>(null);
+  const [step, setStep] = useState<Step>('credentials');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [pin, setPin] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  // The form fades and slides in beneath the buttons; no navigation.
+  const reveal = useRef(new Animated.Value(0)).current;
+  const animateIn = () => {
+    reveal.setValue(0);
+    Animated.timing(reveal, {
+      toValue: 1,
+      duration: 260,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: USE_NATIVE_DRIVER,
+    }).start();
+  };
 
   const player = useVideoPlayer(POOL_VIDEO, (p) => {
     p.loop = true;
@@ -108,14 +132,49 @@ export default function LoginScreen() {
     return () => fade.stop();
   }, [videoLive, videoOpacity]);
 
-  // One demo passcode opens either passcode-gated persona.
-  const handleStaffSignIn = (as: StaffRole) => {
-    if (signInWithPasscode(passcode, as)) {
-      setPasscode('');
-      setError(null);
-    } else {
-      setError('That passcode is not right.');
+  const choosePath = (next: Path) => {
+    if (next === path) return;
+    setPath(next);
+    setStep('credentials');
+    setPin('');
+    setError(null);
+    animateIn();
+  };
+
+  const submitCredentials = () => {
+    if (!verifyCredentials(email, password)) {
+      setError('Email or password is incorrect.');
+      return;
     }
+    setError(null);
+    if (path === 'admin') {
+      // Second factor for the Admin path only; the account still decides the role.
+      setStep('pin');
+      animateIn();
+      return;
+    }
+    signIn(email, password);
+  };
+
+  const submitPin = () => {
+    if (!verifyPin(pin)) {
+      setError('That PIN is not right.');
+      return;
+    }
+    setError(null);
+    signIn(email, password);
+  };
+
+  const backToCredentials = () => {
+    setStep('credentials');
+    setPin('');
+    setError(null);
+    animateIn();
+  };
+
+  const panelStyle = {
+    opacity: reveal,
+    transform: [{ translateY: reveal.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
   };
 
   return (
@@ -131,12 +190,12 @@ export default function LoginScreen() {
           allowsFullscreen={false}
           allowsPictureInPicture={false}
           // Without this, mobile Safari hijacks the video into fullscreen
-          // instead of playing it behind the cards.
+          // instead of playing it behind the card.
           playsInline
         />
       </Animated.View>
 
-      {/* Barely-there scrim: enough to seat the cards, not enough to dull the water. */}
+      {/* Barely-there scrim: enough to seat the card, not enough to dull the water. */}
       <View style={styles.scrim} />
 
       <KeyboardAvoidingView
@@ -155,46 +214,95 @@ export default function LoginScreen() {
             </WaterText>
             <WaterText style={styles.tagline}>Teach. Grow. Make Waves.</WaterText>
 
-            {/* --- worker path --- */}
             <View style={styles.cardShadow}>
               <BlurView intensity={55} tint="light" style={styles.cardBlur}>
                 <View style={styles.cardInner}>
-                  <CardText type="subtitle">Employee</CardText>
-                  <CardText style={styles.cardBody}>
-                    Clock in and out, check your schedule, and see your own hours and pay.
-                  </CardText>
-                  <Button label="Sign in as Employee" tone="success" onPress={signInAsWorker} />
-                </View>
-              </BlurView>
-            </View>
+                  <View style={styles.paths}>
+                    <Button
+                      label="Employee"
+                      tone="success"
+                      variant={path === 'employee' ? 'solid' : 'outline'}
+                      onPress={() => choosePath('employee')}
+                      style={styles.pathButton}
+                    />
+                    <Button
+                      label="Admin"
+                      tone="navy"
+                      variant={path === 'admin' ? 'solid' : 'outline'}
+                      onPress={() => choosePath('admin')}
+                      style={styles.pathButton}
+                    />
+                  </View>
 
-            {/* --- passcode-gated personas (demo gate) --- */}
-            <View style={styles.cardShadow}>
-              <BlurView intensity={55} tint="light" style={styles.cardBlur}>
-                <View style={styles.cardInner}>
-                  <CardText type="subtitle">Owner & Admin</CardText>
-                  <CardText style={styles.cardBody}>
-                    Full access for Jed. Scheduling and approvals for Mike.
-                  </CardText>
-                  <TextInput
-                    value={passcode}
-                    onChangeText={(text) => {
-                      setPasscode(text);
-                      if (error) setError(null);
-                    }}
-                    onSubmitEditing={() => handleStaffSignIn('owner')}
-                    placeholder="Passcode"
-                    placeholderTextColor="#5F7383"
-                    secureTextEntry
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    returnKeyType="go"
-                    accessibilityLabel="Passcode"
-                    style={styles.input}
-                  />
-                  {error ? <CardText style={styles.error}>{error}</CardText> : null}
-                  <Button label="Sign in as Jed (Owner)" tone="navy" onPress={() => handleStaffSignIn('owner')} />
-                  <Button label="Sign in as Mike (Admin)" tone="primary" onPress={() => handleStaffSignIn('admin')} />
+                  {path && step === 'credentials' ? (
+                    <Animated.View style={[styles.panel, panelStyle]}>
+                      <TextInput
+                        value={email}
+                        onChangeText={(text) => {
+                          setEmail(text);
+                          if (error) setError(null);
+                        }}
+                        placeholder="Email"
+                        placeholderTextColor="#5F7383"
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        autoComplete="email"
+                        returnKeyType="next"
+                        accessibilityLabel="Email"
+                        style={styles.input}
+                      />
+                      <TextInput
+                        value={password}
+                        onChangeText={(text) => {
+                          setPassword(text);
+                          if (error) setError(null);
+                        }}
+                        onSubmitEditing={submitCredentials}
+                        placeholder="Password"
+                        placeholderTextColor="#5F7383"
+                        secureTextEntry
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        autoComplete="password"
+                        returnKeyType="go"
+                        accessibilityLabel="Password"
+                        style={styles.input}
+                      />
+                      {error ? <CardText style={styles.error}>{error}</CardText> : null}
+                      <Button
+                        label="Sign In"
+                        tone={path === 'admin' ? 'navy' : 'success'}
+                        onPress={submitCredentials}
+                      />
+                    </Animated.View>
+                  ) : null}
+
+                  {path === 'admin' && step === 'pin' ? (
+                    <Animated.View style={[styles.panel, panelStyle]}>
+                      <CardText style={styles.pinPrompt}>Enter the admin PIN to continue.</CardText>
+                      <TextInput
+                        value={pin}
+                        onChangeText={(text) => {
+                          setPin(text);
+                          if (error) setError(null);
+                        }}
+                        onSubmitEditing={submitPin}
+                        placeholder="Admin PIN"
+                        placeholderTextColor="#5F7383"
+                        secureTextEntry
+                        keyboardType="number-pad"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        returnKeyType="go"
+                        accessibilityLabel="Admin PIN"
+                        style={styles.input}
+                      />
+                      {error ? <CardText style={styles.error}>{error}</CardText> : null}
+                      <Button label="Continue" tone="navy" onPress={submitPin} />
+                      <Button label="Back" tone="navy" variant="soft" size="sm" onPress={backToCredentials} />
+                    </Animated.View>
+                  ) : null}
                 </View>
               </BlurView>
             </View>
@@ -278,12 +386,17 @@ const styles = StyleSheet.create({
   },
   cardInner: {
     padding: 20,
+    gap: 12,
+  },
+  paths: {
+    flexDirection: 'row',
     gap: 10,
   },
-  cardBody: {
-    opacity: 0.8,
-    fontSize: 15,
-    lineHeight: 21,
+  pathButton: {
+    flex: 1,
+  },
+  panel: {
+    gap: 10,
   },
   input: {
     borderWidth: 1,
@@ -294,6 +407,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: INK,
     backgroundColor: 'rgba(255, 255, 255, 0.75)',
+  },
+  pinPrompt: {
+    fontSize: 15,
+    lineHeight: 21,
+    opacity: 0.8,
   },
   error: {
     color: '#B02A1C',

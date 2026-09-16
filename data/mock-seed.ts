@@ -148,9 +148,6 @@ export const STAFF: StaffMember[] = [
   { id: 'omar', name: 'Omar Haddad', short: 'Omar H.', role: 'worker', hourlyRate: 24.5, phone: '(301) 555-0122', email: 'omar@jmaquatics.com' },
 ];
 
-/** Who the demo signs in as for each tier. */
-export const DEMO_USER_FOR_ROLE: Record<Role, string> = { owner: 'jed', admin: 'mike', worker: 'sam' };
-
 // --- schedule ---------------------------------------------------------------------
 // s9–s11 are open shifts Sam is not on (and that don't clash with his), so the
 // worker side has something to say ✓ / ✗ to from the first screen.

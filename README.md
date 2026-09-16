@@ -61,7 +61,7 @@ From the Expo menu press `w` for web, `a` for Android, `i` for iOS, or go straig
 npx expo start --web
 ```
 
-On the login screen choose **Sign in as Employee** (no passcode), or enter the demo passcode and pick **Jed (Owner)** or **Mike (Admin)**. All personas share one in-memory data store, so signing out as Jed and back in as the worker shows the effects of what Jed just did — handy for demos.
+On the login screen tap **Employee** or **Admin**, then sign in with one of the three demo accounts (ask Ben for the credentials — they aren't printed here or in the app). Your screens come from the account, not the button; the Admin path also asks for the admin PIN after sign-in. All accounts share one in-memory data store, so signing out as Jed and back in as the worker shows the effects of what Jed just did — handy for demos.
 
 Before calling a change done:
 
