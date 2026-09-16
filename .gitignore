@@ -41,3 +41,6 @@ app-example
 # generated native folders
 /ios
 /android
+
+# Design-reference source videos are far too large for git (GitHub rejects files over 100 MB)
+design-refs/*.mp4
