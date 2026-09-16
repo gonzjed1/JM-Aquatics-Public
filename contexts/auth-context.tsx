@@ -33,9 +33,9 @@ type DemoAccount = {
 
 // Not shown anywhere on screen or in the README on purpose.
 const DEMO_ACCOUNTS: DemoAccount[] = [
-  { email: 'jed@jmaquatics.com', password: TEMP_DEMO_PASSWORD, staffId: 'jed', role: 'owner' },
-  { email: 'mike@jmaquatics.com', password: TEMP_DEMO_PASSWORD, staffId: 'mike', role: 'admin' },
-  { email: 'sam@jmaquatics.com', password: TEMP_DEMO_PASSWORD, staffId: 'sam', role: 'worker' },
+  { email: 'owner@jm.demo', password: TEMP_DEMO_PASSWORD, staffId: 'jed', role: 'owner' },
+  { email: 'admin@jm.demo', password: TEMP_DEMO_PASSWORD, staffId: 'mike', role: 'admin' },
+  { email: 'employee@jm.demo', password: TEMP_DEMO_PASSWORD, staffId: 'sam', role: 'worker' },
 ];
 
 function findAccount(email: string, password: string): DemoAccount | undefined {
