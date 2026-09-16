@@ -1,30 +1,46 @@
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { HEADER_BG, HeaderIconButton, ScreenHeader } from '@/components/screen-header';
+import { HEADER_BG, ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { ContactButtons } from '@/components/ui/contact-buttons';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Segmented } from '@/components/ui/segmented';
+import { ROLE_LABEL } from '@/constants/permissions';
 import { useAppData, useMe } from '@/contexts/app-data';
 import { formatMonthDay, formatWallClock, toISODate } from '@/data/format';
 import type { Conversation } from '@/data/mock-seed';
+import { useThemeColor } from '@/hooks/use-theme-color';
 
 type View_ = 'direct' | 'groups';
 
 /**
- * Messages is a read-only preview of the layout. Real messaging is a later
- * phase (a managed service, likely Stream) — per AGENTS.md this is shell only.
+ * Messages: find a person (search at the top, or New Message in the header),
+ * or pick up a thread. Sending is still the layout only — real messaging is a
+ * later phase (a managed service, likely Stream) — but threads open for real.
  */
 export default function MessagesScreen() {
   const me = useMe();
-  const { conversations, staffById, today, openDm } = useAppData();
+  const { conversations, staff, staffById, today, openDm } = useAppData();
+  const textColor = useThemeColor({}, 'text');
   const [view, setView] = useState<View_>('direct');
   const [openId, setOpenId] = useState<string | null>(null);
-  const [notice, setNotice] = useState(false);
+  const [query, setQuery] = useState('');
+  // New Message shows the whole roster under the search box until a thread is picked.
+  const [picking, setPicking] = useState(false);
+  const searchRef = useRef<TextInput>(null);
   const meId = me?.id ?? '';
+
+  const openThreadWith = (staffId: string) => {
+    setView('direct');
+    setOpenId(openDm(meId, staffId));
+    setQuery('');
+    setPicking(false);
+  };
 
   // A "message" button elsewhere lands here with ?dm=<staffId>; open that thread straight away.
   const { dm, t } = useLocalSearchParams<{ dm?: string; t?: string }>();
@@ -32,10 +48,19 @@ export default function MessagesScreen() {
     if (!dm || !meId) return;
     setView('direct');
     setOpenId(openDm(meId, dm));
+    setQuery('');
+    setPicking(false);
     // `t` changes on every press so the same person can be opened twice in a row.
   }, [dm, t, meId, openDm]);
 
   if (!me) return null;
+
+  const needle = query.trim().toLowerCase();
+  const people = staff
+    .filter((p) => p.id !== me.id)
+    .filter((p) => !needle || p.name.toLowerCase().includes(needle) || p.phone.includes(needle))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const showPeople = picking || needle.length > 0;
 
   // Empty threads (just opened from a contact button) sort first, like a fresh draft.
   const lastOf = (c: Conversation) => c.messages[c.messages.length - 1] as Conversation['messages'][number] | undefined;
@@ -60,16 +85,70 @@ export default function MessagesScreen() {
   return (
     <ParallaxScrollView
       headerBackgroundColor={HEADER_BG}
-      headerImage={<ScreenHeader title="Messages" subtitle="Preview — messaging arrives in a later phase" />}
+      headerImage={<ScreenHeader title="Messages" subtitle="Sending arrives in a later phase" />}
       headerRight={
-        <HeaderIconButton name="square.and.pencil" label="New message" onPress={() => setNotice(true)} />
+        <Button
+          label="New Message"
+          tone="success"
+          onPress={() => {
+            setPicking(true);
+            searchRef.current?.focus();
+          }}
+        />
       }>
-      {notice ? (
-        <Card style={styles.notice}>
-          <ThemedText type="defaultSemiBold">Coming in a later phase</ThemedText>
-          <ThemedText style={styles.muted}>
-            This tab shows the layout only. Sending and receiving arrives with the messaging service.
-          </ThemedText>
+      <View style={styles.searchWrap}>
+        <IconSymbol name="magnifyingglass" size={20} color="#7B8B98" />
+        <TextInput
+          ref={searchRef}
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search people"
+          placeholderTextColor="#7B8B98"
+          autoCapitalize="words"
+          autoCorrect={false}
+          accessibilityLabel="Search people"
+          style={[styles.search, { color: textColor }]}
+        />
+        {showPeople ? (
+          <Pressable
+            onPress={() => {
+              setQuery('');
+              setPicking(false);
+            }}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Close search">
+            <IconSymbol name="xmark" size={20} color="#7B8B98" />
+          </Pressable>
+        ) : null}
+      </View>
+
+      {showPeople ? (
+        <Card style={styles.list}>
+          {people.length === 0 ? (
+            <ThemedText style={styles.muted}>No one matches that.</ThemedText>
+          ) : (
+            people.map((person, i) => (
+              <View key={person.id} style={[styles.personRow, i < people.length - 1 && styles.divider]}>
+                <Pressable
+                  onPress={() => openThreadWith(person.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open thread with ${person.short}`}
+                  style={({ pressed }) => [styles.personMain, pressed && styles.pressed]}>
+                  <View style={styles.avatar}>
+                    <ThemedText style={styles.avatarText}>{person.name[0]}</ThemedText>
+                  </View>
+                  <View style={styles.text}>
+                    <ThemedText type="defaultSemiBold">{person.name}</ThemedText>
+                    <ThemedText style={styles.preview}>
+                      {person.role === 'worker' ? 'Instructor' : ROLE_LABEL[person.role]} · {person.phone}
+                    </ThemedText>
+                  </View>
+                </Pressable>
+                <ContactButtons person={person} size="sm" />
+              </View>
+            ))
+          )}
         </Card>
       ) : null}
 
@@ -123,6 +202,9 @@ export default function MessagesScreen() {
 
                 {open ? (
                   <View style={styles.thread}>
+                    {c.messages.length === 0 ? (
+                      <ThemedText style={styles.threadNote}>Start of your conversation.</ThemedText>
+                    ) : null}
                     {c.messages.map((m, j) => {
                       const fromMe = m.from === me.id;
                       return (
@@ -139,7 +221,7 @@ export default function MessagesScreen() {
                         </View>
                       );
                     })}
-                    <ThemedText style={styles.threadNote}>Replies arrive with the messaging service.</ThemedText>
+                    <ThemedText style={styles.threadNote}>Sending and replies arrive with the messaging service.</ThemedText>
                   </View>
                 ) : null}
               </View>
@@ -152,13 +234,24 @@ export default function MessagesScreen() {
 }
 
 const styles = StyleSheet.create({
-  notice: {
-    borderColor: '#2F6FB2',
-  },
   muted: {
     fontSize: 14,
     lineHeight: 20,
     opacity: 0.65,
+  },
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#888',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+  },
+  search: {
+    flex: 1,
+    paddingVertical: 12,
+    fontSize: 16,
   },
   list: {
     gap: 0,
@@ -167,6 +260,18 @@ const styles = StyleSheet.create({
   divider: {
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#888',
+  },
+  personRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 8,
+  },
+  personMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   row: {
     flexDirection: 'row',
