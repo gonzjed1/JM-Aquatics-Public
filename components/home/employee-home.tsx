@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet } from 'react-native';
 
 import { greeting } from '@/components/home/greeting';
@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useAppData, useMe } from '@/contexts/app-data';
 import { formatDayDate, formatTimeRange } from '@/data/format';
+import { useArmedAction } from '@/hooks/use-armed-action';
 
 const OPEN_SHIFT_PREVIEW = 4;
 
@@ -40,19 +41,33 @@ export function EmployeeHome() {
     if (meId) markNotificationsRead(meId);
   }, [meId, markNotificationsRead]);
 
+  const mine = meId ? shiftsFor(meId) : [];
+  const todays = mine.find((s) => s.date === today);
+  const clockedIn = meId ? isClockedIn(meId) : false;
+
+  // Same store action the Time tab uses, so the two buttons never disagree.
+  const punch = useCallback(() => {
+    if (!meId) return;
+    if (clockedIn) clockOut(meId);
+    else clockIn(meId, todays?.location ?? 'LA Fitness Bowie');
+  }, [meId, clockedIn, clockIn, clockOut, todays?.location]);
+  // A punch is two taps: the first arms the button, the second confirms.
+  const { armed: punchArmed, tap: tapPunch } = useArmedAction(punch);
+
   if (!me) return null;
 
-  const mine = shiftsFor(me.id);
-  const todays = mine.find((s) => s.date === today);
   const upcoming = mine.filter((s) => s.date > today).slice(0, 3);
-  const clockedIn = isClockedIn(me.id);
   const open = openShiftsFor(me.id);
   const preview = open.slice(0, OPEN_SHIFT_PREVIEW);
   const newCount = open.filter((s) => newShiftIds.has(s.id)).length;
 
-  // Same store action the Time tab uses, so the two buttons never disagree.
-  const punch = () =>
-    clockedIn ? clockOut(me.id) : clockIn(me.id, todays?.location ?? 'LA Fitness Bowie');
+  const punchLabel = punchArmed
+    ? clockedIn
+      ? 'Tap again to clock out'
+      : 'Tap again to clock in'
+    : clockedIn
+      ? 'Clock Out'
+      : 'Clock In';
 
   return (
     <ParallaxScrollView
@@ -79,12 +94,17 @@ export function EmployeeHome() {
           <ThemedText style={[styles.muted, styles.time]}>No shift scheduled today.</ThemedText>
         )}
         <Button
-          label={clockedIn ? 'Clock Out' : 'Clock In'}
+          label={punchLabel}
           tone={clockedIn ? 'danger' : 'primary'}
-          onPress={punch}
+          variant={punchArmed ? 'outline' : 'solid'}
+          onPress={tapPunch}
           style={styles.punch}
         />
-        {clockedIn ? <ThemedText style={styles.onClock}>{"You're on the clock."}</ThemedText> : null}
+        {punchArmed ? (
+          <ThemedText style={styles.onClock}>Cancels by itself in a few seconds.</ThemedText>
+        ) : clockedIn ? (
+          <ThemedText style={styles.onClock}>{"You're on the clock."}</ThemedText>
+        ) : null}
       </Card>
 
       <Card style={styles.openCard}>

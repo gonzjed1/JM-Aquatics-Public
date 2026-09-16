@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import ParallaxScrollView from '@/components/parallax-scroll-view';
@@ -10,21 +11,37 @@ import { StatusDot } from '@/components/ui/status-dot';
 import { useAppData, useMe } from '@/contexts/app-data';
 import { formatWallClock } from '@/data/format';
 import type { Punch } from '@/data/mock-seed';
+import { useArmedAction } from '@/hooks/use-armed-action';
 
-/** The worker's time clock: one big button and today's punches. */
+/** The worker's time clock: one big button (two taps to punch) and today's punches. */
 export function EmployeeTime() {
   const me = useMe();
   const { today, shiftsFor, punchesFor, isClockedIn, clockIn, clockOut } = useAppData();
+  const meId = me?.id ?? '';
+
+  const punches = meId ? punchesFor(meId) : [];
+  const clockedIn = meId ? isClockedIn(meId) : false;
+  const since = clockedIn ? punches[punches.length - 1] : undefined;
+  const todays = meId ? shiftsFor(meId).find((s) => s.date === today) : undefined;
+
+  const punch = useCallback(() => {
+    if (!meId) return;
+    if (clockedIn) clockOut(meId);
+    else clockIn(meId, todays?.location ?? 'LA Fitness Bowie');
+  }, [meId, clockedIn, clockIn, clockOut, todays?.location]);
+  // First tap arms, second confirms; it disarms itself after a few seconds.
+  const { armed, tap } = useArmedAction(punch);
 
   if (!me) return null;
 
-  const punches = punchesFor(me.id);
-  const clockedIn = isClockedIn(me.id);
-  const since = clockedIn ? punches[punches.length - 1] : undefined;
-  const todays = shiftsFor(me.id).find((s) => s.date === today);
-
-  const handlePunch = () =>
-    clockedIn ? clockOut(me.id) : clockIn(me.id, todays?.location ?? 'LA Fitness Bowie');
+  const tone = clockedIn ? '#C0392B' : '#27AE60';
+  const label = armed
+    ? clockedIn
+      ? 'Tap again\nto clock out'
+      : 'Tap again\nto clock in'
+    : clockedIn
+      ? 'CLOCK OUT'
+      : 'CLOCK IN';
 
   return (
     <ParallaxScrollView
@@ -39,18 +56,21 @@ export function EmployeeTime() {
 
       <View style={styles.buttonWrapper}>
         <Pressable
-          onPress={handlePunch}
+          onPress={tap}
           accessibilityRole="button"
+          accessibilityLabel={clockedIn ? 'Clock out' : 'Clock in'}
+          accessibilityState={{ expanded: armed }}
           style={({ pressed }) => [
             styles.punchButton,
-            { backgroundColor: clockedIn ? '#C0392B' : '#27AE60' },
+            armed ? [styles.punchArmed, { borderColor: tone }] : { backgroundColor: tone },
             pressed && styles.punchButtonPressed,
           ]}>
-          <IconSymbol name="clock.fill" size={40} color="#FFFFFF" />
-          <ThemedText type="title" style={styles.punchText}>
-            {clockedIn ? 'CLOCK OUT' : 'CLOCK IN'}
+          <IconSymbol name="clock.fill" size={40} color={armed ? tone : '#FFFFFF'} />
+          <ThemedText type="title" style={[styles.punchText, armed && [styles.punchTextArmed, { color: tone }]]}>
+            {label}
           </ThemedText>
         </Pressable>
+        {armed ? <ThemedText style={styles.hint}>Cancels by itself in a few seconds.</ThemedText> : null}
       </View>
 
       <Card>
@@ -58,8 +78,8 @@ export function EmployeeTime() {
         {punches.length === 0 ? (
           <ThemedText style={styles.muted}>No punches yet today.</ThemedText>
         ) : (
-          [...punches].reverse().map((punch, i, all) => (
-            <PunchRow key={punch.id} punch={punch} last={i === all.length - 1} />
+          [...punches].reverse().map((p, i, all) => (
+            <PunchRow key={p.id} punch={p} last={i === all.length - 1} />
           ))
         )}
       </Card>
@@ -89,6 +109,7 @@ const styles = StyleSheet.create({
   buttonWrapper: {
     alignItems: 'center',
     marginVertical: 24,
+    gap: 10,
   },
   punchButton: {
     width: 200,
@@ -99,6 +120,10 @@ const styles = StyleSheet.create({
     gap: 6,
     elevation: 4,
   },
+  punchArmed: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 4,
+  },
   punchButtonPressed: {
     opacity: 0.8,
     transform: [{ scale: 0.97 }],
@@ -107,6 +132,16 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 26,
     lineHeight: 30,
+    textAlign: 'center',
+  },
+  punchTextArmed: {
+    fontSize: 20,
+    lineHeight: 24,
+  },
+  hint: {
+    fontSize: 13,
+    lineHeight: 18,
+    opacity: 0.65,
   },
   punchRow: {
     flexDirection: 'row',
