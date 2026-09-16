@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import ParallaxScrollView from '@/components/parallax-scroll-view';
@@ -9,6 +9,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useAppData, useMe } from '@/contexts/app-data';
+import { useArmedAction } from '@/hooks/use-armed-action';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const WEEKDAYS = [1, 2, 3, 4, 5];
@@ -21,10 +22,19 @@ export default function AvailabilityScreen() {
   const router = useRouter();
   const me = useMe();
   const { availability, submitAvailability, openShiftsFor, answerFor, respondToShift } = useAppData();
+  const meId = me?.id ?? '';
 
-  const onFile = me ? availability[me.id] : undefined;
+  const onFile = meId ? availability[meId] : undefined;
   const [days, setDays] = useState<number[]>(onFile ?? WEEKDAYS);
   const [justSubmitted, setJustSubmitted] = useState(false);
+
+  const submit = useCallback(() => {
+    if (!meId) return;
+    submitAvailability(meId, days);
+    setJustSubmitted(true);
+  }, [meId, days, submitAvailability]);
+  // Same arm-then-confirm as the punch buttons: first tap arms, second submits.
+  const { armed, tap: tapSubmit, disarm } = useArmedAction(submit);
 
   if (!me) return null;
 
@@ -33,12 +43,8 @@ export default function AvailabilityScreen() {
 
   const toggle = (day: number) => {
     setJustSubmitted(false);
+    disarm(); // changing the days is a new decision — ask for the confirm again
     setDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day].sort()));
-  };
-
-  const submit = () => {
-    submitAvailability(me.id, days);
-    setJustSubmitted(true);
   };
 
   return (
@@ -89,13 +95,16 @@ export default function AvailabilityScreen() {
           })}
         </View>
         <Button
-          label="Submit Availability"
+          label={armed ? 'Tap again to submit' : 'Submit Availability'}
           tone="success"
+          variant={armed ? 'outline' : 'solid'}
           disabled={days.length === 0}
-          onPress={submit}
+          onPress={tapSubmit}
           style={styles.submit}
         />
-        {justSubmitted ? (
+        {armed ? (
+          <ThemedText style={styles.hint}>Cancels by itself in a few seconds.</ThemedText>
+        ) : justSubmitted ? (
           <ThemedText style={styles.confirm}>Submitted — Jed will see it in his activity feed.</ThemedText>
         ) : null}
       </Card>
@@ -149,6 +158,13 @@ const styles = StyleSheet.create({
   },
   submit: {
     marginTop: 12,
+  },
+  hint: {
+    fontSize: 13,
+    lineHeight: 18,
+    opacity: 0.65,
+    textAlign: 'center',
+    marginTop: 6,
   },
   confirm: {
     fontSize: 13,
