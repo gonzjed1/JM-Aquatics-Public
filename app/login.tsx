@@ -60,16 +60,27 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
 
   // The form fades and slides in beneath the buttons; no navigation.
+  //
+  // The animation is started from an effect keyed on which panel is showing,
+  // *after* that panel has mounted and attached to `reveal`. Starting it from
+  // the tap handler broke the PIN step: the credentials panel was still
+  // attached when the animation began, and its unmount detached the value's
+  // last listener — which stops the running animation a frame in, leaving the
+  // freshly mounted PIN panel stuck near opacity 0.
   const reveal = useRef(new Animated.Value(0)).current;
-  const animateIn = () => {
+  const panelKey = path ? `${path}:${step}` : null;
+  useEffect(() => {
+    if (!panelKey) return;
     reveal.setValue(0);
-    Animated.timing(reveal, {
+    const anim = Animated.timing(reveal, {
       toValue: 1,
       duration: 260,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: USE_NATIVE_DRIVER,
-    }).start();
-  };
+    });
+    anim.start();
+    return () => anim.stop();
+  }, [panelKey, reveal]);
 
   const player = useVideoPlayer(POOL_VIDEO, (p) => {
     p.loop = true;
@@ -138,7 +149,6 @@ export default function LoginScreen() {
     setStep('credentials');
     setPin('');
     setError(null);
-    animateIn();
   };
 
   const submitCredentials = () => {
@@ -150,7 +160,6 @@ export default function LoginScreen() {
     if (path === 'admin') {
       // Second factor for the Admin path only; the account still decides the role.
       setStep('pin');
-      animateIn();
       return;
     }
     signIn(email, password);
@@ -169,7 +178,6 @@ export default function LoginScreen() {
     setStep('credentials');
     setPin('');
     setError(null);
-    animateIn();
   };
 
   const panelStyle = {
@@ -235,7 +243,7 @@ export default function LoginScreen() {
                   </View>
 
                   {path && step === 'credentials' ? (
-                    <Animated.View style={[styles.panel, panelStyle]}>
+                    <Animated.View key="credentials" style={[styles.panel, panelStyle]}>
                       <TextInput
                         value={email}
                         onChangeText={(text) => {
@@ -279,7 +287,8 @@ export default function LoginScreen() {
                   ) : null}
 
                   {path === 'admin' && step === 'pin' ? (
-                    <Animated.View style={[styles.panel, panelStyle]}>
+                    <Animated.View key="pin" style={[styles.panel, panelStyle]}>
+                      <CardText type="defaultSemiBold">Admin PIN</CardText>
                       <CardText style={styles.pinPrompt}>Enter the admin PIN to continue.</CardText>
                       <TextInput
                         value={pin}
@@ -292,6 +301,7 @@ export default function LoginScreen() {
                         placeholderTextColor="#5F7383"
                         secureTextEntry
                         keyboardType="number-pad"
+                        inputMode="numeric"
                         autoCapitalize="none"
                         autoCorrect={false}
                         returnKeyType="go"
