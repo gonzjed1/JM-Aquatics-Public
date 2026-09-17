@@ -10,13 +10,22 @@ import { Card } from '@/components/ui/card';
 import { ContactButtons } from '@/components/ui/contact-buttons';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { KeyValue } from '@/components/ui/key-value';
+import { ListRow } from '@/components/ui/list-row';
 import { Segmented } from '@/components/ui/segmented';
 import { StatTile } from '@/components/ui/stat-tile';
 import { useAppData } from '@/contexts/app-data';
 import { saveTextFile } from '@/data/download';
 import { formatCurrency, formatDateRange, formatHours } from '@/data/format';
 import { MOCK_PAY_PERIOD } from '@/data/mock-seed';
-import { payrollCsv, payrollRows, payrollTotal } from '@/data/payroll';
+import {
+  payrollCsv,
+  payrollForRange,
+  payrollRows,
+  payrollTotal,
+  rangeFor,
+  stepAnchor,
+  type RangeScale,
+} from '@/data/payroll';
 
 // ---------------------------------------------------------------------------
 // MOCK DATA — closed periods for the History tab. The current period comes
@@ -27,21 +36,35 @@ const CLOSED_PERIODS = [
   { id: '2025-07-01', label: 'Jul 1 – Jul 15, 2025', employees: 11, total: 5088.5 },
 ];
 
-type Tab = 'current' | 'history';
+type Tab = 'current' | 'totals' | 'history';
+
+const SCALES: { value: RangeScale; label: string }[] = [
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'annual', label: 'Annual' },
+];
 
 /** Jed-only: everyone's pay for the period, one person at a time or all at once. */
 export default function PayrollScreen() {
   const router = useRouter();
-  const { payroll, staffById } = useAppData();
+  const { today, payroll, staffById } = useAppData();
 
   const [tab, setTab] = useState<Tab>('current');
   const [selectedId, setSelectedId] = useState('sam');
   const [exportNote, setExportNote] = useState<string | null>(null);
+  // Totals tab: which scale, and which week / month / year of it.
+  const [scale, setScale] = useState<RangeScale>('weekly');
+  const [anchor, setAnchor] = useState(today);
 
   const rows = useMemo(() => payrollRows(payroll, staffById), [payroll, staffById]);
   const selected = rows.find((r) => r.staff.id === selectedId) ?? rows[0];
   const total = payrollTotal(rows);
   const periodLabel = formatDateRange(MOCK_PAY_PERIOD.start, MOCK_PAY_PERIOD.end);
+
+  const range = rangeFor(scale, anchor);
+  const rangeRows = payrollForRange(rows, range);
+  const rangeTotal = payrollTotal(rangeRows);
+  const rangeHours = rangeRows.reduce((sum, r) => sum + r.line.hours, 0);
 
   const exportCsv = async () => {
     const filename = `payroll-${MOCK_PAY_PERIOD.start}_${MOCK_PAY_PERIOD.end}.csv`;
@@ -63,6 +86,7 @@ export default function PayrollScreen() {
       <Segmented
         options={[
           { value: 'current', label: 'Current' },
+          { value: 'totals', label: 'Totals' },
           { value: 'history', label: 'History' },
         ]}
         value={tab}
@@ -125,6 +149,57 @@ export default function PayrollScreen() {
             <StatTile value={rows.length} label="Employees" />
             <StatTile value={formatCurrency(total)} label="Total Payroll" color="#27AE60" />
           </View>
+        </>
+      ) : tab === 'totals' ? (
+        <>
+          <Segmented options={SCALES} value={scale} onChange={setScale} />
+
+          <View style={styles.periodRow}>
+            <Pressable
+              onPress={() => setAnchor(stepAnchor(scale, anchor, -1))}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Previous range">
+              <IconSymbol name="chevron.left" size={22} color="#687076" />
+            </Pressable>
+            <ThemedText type="defaultSemiBold">{formatDateRange(range.start, range.end)}</ThemedText>
+            <Pressable
+              onPress={() => setAnchor(stepAnchor(scale, anchor, 1))}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Next range">
+              <IconSymbol name="chevron.right" size={22} color="#687076" />
+            </Pressable>
+          </View>
+
+          <View style={styles.tiles}>
+            <StatTile value={formatHours(rangeHours)} label="Hours" />
+            <StatTile value={formatCurrency(rangeTotal)} label="Gross Pay" color="#27AE60" />
+          </View>
+
+          <Card style={styles.history}>
+            {rangeRows.map((r, i) => (
+              <ListRow
+                key={r.staff.id}
+                icon="person.fill"
+                title={r.staff.name}
+                subtitle={formatHours(r.line.hours)}
+                right={
+                  <View style={styles.personLine}>
+                    <ContactButtons person={r.staff} size="sm" />
+                    <ThemedText type="defaultSemiBold">{formatCurrency(r.gross)}</ThemedText>
+                  </View>
+                }
+              />
+            ))}
+            {rangeRows.length === 0 ? <ThemedText style={styles.muted}>Nobody on payroll yet.</ThemedText> : null}
+          </Card>
+
+          <ThemedText style={styles.note}>
+            {scale === 'weekly'
+              ? 'A week of the current pay period, per person.'
+              : 'Projected from the current pay period — payroll history is connected in Phase 4.'}
+          </ThemedText>
         </>
       ) : (
         <Card style={styles.history}>

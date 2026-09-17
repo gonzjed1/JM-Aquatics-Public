@@ -8,7 +8,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Segmented } from '@/components/ui/segmented';
-import { MOCK_HOURLY_RATE } from '@/constants/mock-payroll';
+import { MOCK_HOURLY_RATE, MOCK_MY_WEEK_LABEL, mockWeekHours } from '@/constants/mock-payroll';
 import { formatCurrency, formatHours } from '@/data/format';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -69,6 +69,12 @@ function grossPayFor(period: PayPeriod) {
   return straightTime + overtime;
 }
 
+/** Same rule for a part-week: straight time only until the 40h line is crossed. */
+function weekPayFor(hours: number) {
+  const straight = Math.min(hours, 40);
+  return straight * MOCK_HOURLY_RATE + Math.max(0, hours - 40) * MOCK_HOURLY_RATE * OVERTIME_MULTIPLIER;
+}
+
 // ---------------------------------------------------------------------------
 
 type PayTab = 'current' | 'history';
@@ -84,6 +90,11 @@ export default function PayScreen() {
   const period = PAY_PERIODS[periodIndex];
   const hasOlder = periodIndex > 0;
   const hasNewer = periodIndex < PAY_PERIODS.length - 1;
+
+  // This week stands on its own: the period picker below walks through pay
+  // periods, but the question most often asked is "what have I made so far?".
+  const weekHours = mockWeekHours();
+  const current = PAY_PERIODS[PAY_PERIODS.length - 1];
 
   const arrowColor = isDark ? '#9BA1A6' : '#687076';
   const arrowDisabledColor = isDark ? '#3A4145' : '#C8CDD0';
@@ -104,6 +115,32 @@ export default function PayScreen() {
 
       {tab === 'current' ? (
         <>
+          {/* this week, and the period running total it feeds */}
+          <ThemedView style={styles.card}>
+            <ThemedText type="defaultSemiBold">This week</ThemedText>
+            <ThemedText style={styles.weekLabel}>{MOCK_MY_WEEK_LABEL}</ThemedText>
+            <View style={styles.weekRow}>
+              <View style={styles.weekBox}>
+                <ThemedText type="title" style={styles.weekValue}>
+                  {formatHours(weekHours)}
+                </ThemedText>
+                <ThemedText style={styles.weekCaption}>hours worked</ThemedText>
+              </View>
+              <View style={styles.weekBox}>
+                <ThemedText type="title" style={[styles.weekValue, styles.weekPay]}>
+                  {formatCurrency(weekPayFor(weekHours))}
+                </ThemedText>
+                <ThemedText style={styles.weekCaption}>estimated pay</ThemedText>
+              </View>
+            </View>
+            <View style={styles.detailList}>
+              <DetailRow
+                label={`Running total · ${current.label}`}
+                value={`${formatHours(current.hours)} · ${formatCurrency(grossPayFor(current))}`}
+              />
+            </View>
+          </ThemedView>
+
           {/* pay period picker */}
           <View style={styles.periodRow}>
             <Pressable
@@ -180,6 +217,29 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 const styles = StyleSheet.create({
   pressed: {
     opacity: 0.6,
+  },
+  weekLabel: {
+    opacity: 0.65,
+  },
+  weekRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 10,
+  },
+  weekBox: {
+    flex: 1,
+  },
+  weekValue: {
+    fontSize: 30,
+    lineHeight: 36,
+  },
+  weekPay: {
+    color: '#27AE60',
+  },
+  weekCaption: {
+    fontSize: 13,
+    lineHeight: 18,
+    opacity: 0.7,
   },
   periodRow: {
     flexDirection: 'row',
