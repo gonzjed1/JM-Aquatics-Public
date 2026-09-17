@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { greeting } from '@/components/home/greeting';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
@@ -10,6 +10,7 @@ import { HEADER_BG, HeaderIconButton, ScreenHeader } from '@/components/screen-h
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { byStart, useAppData, useMe } from '@/contexts/app-data';
 import { formatDayDate, formatTimeRange, formatWallClock } from '@/data/format';
 import type { AppNotification } from '@/data/mock-seed';
@@ -84,13 +85,13 @@ export function EmployeeHome() {
   const newCount = open.filter((s) => newShiftIds.has(s.id)).length;
 
   const recent = notificationsFor(me.id).slice(0, ACTIVITY_PREVIEW);
-  const lineFor = (n: AppNotification) => {
-    const shift = shifts.find((s) => s.id === n.shiftId);
-    const label = shift ? shiftLabel(shift) : 'a shift';
-    return n.kind === 'shift-filled'
-      ? `${label} was filled — thanks for offering.`
-      : `New shift posted: ${label}`;
-  };
+  // A posting is something to act on, so it says what to do and opens the
+  // availability board; a shift that filled is just news.
+  const lineFor = (n: AppNotification) =>
+    n.kind === 'shift-filled'
+      ? 'Filled — thanks for offering.'
+      : 'New shift posted — tap ✓ or ✗ to give your availability';
+  const shiftOf = (n: AppNotification) => shifts.find((s) => s.id === n.shiftId);
 
   const punchLabel = punchArmed
     ? clockedIn
@@ -200,12 +201,30 @@ export function EmployeeHome() {
         {recent.length === 0 ? (
           <ThemedText style={styles.muted}>Nothing yet.</ThemedText>
         ) : (
-          recent.map((n) => (
-            <ThemedText key={n.id} style={styles.activityLine}>
-              <ThemedText style={styles.activityTime}>{formatWallClock(new Date(n.at))} · </ThemedText>
-              {lineFor(n)}
-            </ThemedText>
-          ))
+          recent.map((n) => {
+            const shift = shiftOf(n);
+            const line = (
+              <>
+                <ThemedText style={styles.activityLine}>
+                  <ThemedText style={styles.activityTime}>{formatWallClock(new Date(n.at))} · </ThemedText>
+                  {lineFor(n)}
+                </ThemedText>
+                {shift ? <ThemedText style={styles.activityShift}>{shiftLabel(shift)}</ThemedText> : null}
+              </>
+            );
+            if (n.kind !== 'shift-posted') return <View key={n.id}>{line}</View>;
+            return (
+              <Pressable
+                key={n.id}
+                onPress={() => router.push({ pathname: '/more/availability', params: { from: 'home' } })}
+                accessibilityRole="button"
+                accessibilityLabel={`Answer ${shift ? shiftLabel(shift) : 'the new shift'}`}
+                style={({ pressed }) => [styles.activityRow, pressed && styles.pressed]}>
+                <View style={styles.grow}>{line}</View>
+                <IconSymbol name="chevron.right" size={18} color="#9BA1A6" />
+              </Pressable>
+            );
+          })
         )}
       </Card>
     </ParallaxScrollView>
@@ -250,6 +269,22 @@ const styles = StyleSheet.create({
   activityTime: {
     fontSize: 14,
     lineHeight: 20,
+    opacity: 0.6,
+  },
+  activityShift: {
+    fontSize: 13,
+    lineHeight: 18,
+    opacity: 0.65,
+  },
+  activityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  grow: {
+    flex: 1,
+  },
+  pressed: {
     opacity: 0.6,
   },
 });
