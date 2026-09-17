@@ -73,8 +73,8 @@ export default function MessagesScreen() {
   return (
     <ParallaxScrollView
       headerBackgroundColor={HEADER_BG}
-      headerImage={<ScreenHeader title="Messages" subtitle="Sending arrives in a later phase" />}
-      headerRight={
+      headerImage={<ScreenHeader title="Messages" subtitle="Sending arrives in a later phase" />}>
+      <View style={styles.intro}>
         <Button
           label="New Message"
           tone="success"
@@ -83,7 +83,9 @@ export default function MessagesScreen() {
             searchRef.current?.focus();
           }}
         />
-      }>
+        <ThemedText style={styles.introNote}>Send a message or call any employee here.</ThemedText>
+      </View>
+
       <View style={styles.searchWrap}>
         <IconSymbol name="magnifyingglass" size={20} color="#7B8B98" />
         <TextInput
@@ -226,6 +228,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     opacity: 0.65,
+  },
+  intro: {
+    gap: 8,
+    marginTop: 4,
+  },
+  introNote: {
+    fontSize: 13,
+    lineHeight: 18,
+    opacity: 0.7,
+    textAlign: 'center',
   },
   searchWrap: {
     flexDirection: 'row',
