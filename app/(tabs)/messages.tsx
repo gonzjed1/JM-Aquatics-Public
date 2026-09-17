@@ -18,6 +18,13 @@ import { useThemeColor } from '@/hooks/use-theme-color';
 
 type View_ = 'direct' | 'groups';
 
+/** Nudges the count along: nobody picked, one short, or ready to go. */
+function memberNote(count: number): string {
+  if (count === 0) return 'Tap everyone who should be in it.';
+  if (count === 1) return '1 person selected — pick at least one more.';
+  return `${count} people selected.`;
+}
+
 /**
  * Messages: find a person (search at the top, or New Message in the header),
  * or pick up a thread. Sending is still the layout only — real messaging is a
@@ -25,21 +32,43 @@ type View_ = 'direct' | 'groups';
  */
 export default function MessagesScreen() {
   const me = useMe();
-  const { conversations, staff, staffById, today, openDm, deleteConversation } = useAppData();
+  const { conversations, staff, staffById, today, openDm, createGroup, renameConversation, deleteConversation } =
+    useAppData();
   const textColor = useThemeColor({}, 'text');
   const [view, setView] = useState<View_>('direct');
   const [openId, setOpenId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
-  // New Message shows the whole roster under the search box until a thread is picked.
-  const [picking, setPicking] = useState(false);
+  // The roster sits under the search box while picking: 'dm' opens a thread
+  // with whoever is tapped, 'group' collects them instead.
+  const [picking, setPicking] = useState<'dm' | 'group' | null>(null);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [groupName, setGroupName] = useState('');
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameText, setRenameText] = useState('');
   const searchRef = useRef<TextInput>(null);
   const meId = me?.id ?? '';
+
+  const stopPicking = () => {
+    setPicking(null);
+    setSelected([]);
+    setGroupName('');
+    setQuery('');
+  };
 
   const openThreadWith = (staffId: string) => {
     setView('direct');
     setOpenId(openDm(meId, staffId));
-    setQuery('');
-    setPicking(false);
+    stopPicking();
+  };
+
+  const toggleMember = (staffId: string) =>
+    setSelected((prev) => (prev.includes(staffId) ? prev.filter((id) => id !== staffId) : [...prev, staffId]));
+
+  const startGroup = () => {
+    const id = createGroup(meId, selected, groupName);
+    stopPicking();
+    setView('groups');
+    setOpenId(id);
   };
 
   if (!me) return null;
@@ -49,7 +78,8 @@ export default function MessagesScreen() {
     .filter((p) => p.id !== me.id)
     .filter((p) => !needle || p.name.toLowerCase().includes(needle) || p.phone.includes(needle))
     .sort((a, b) => a.name.localeCompare(b.name));
-  const showPeople = picking || needle.length > 0;
+  const showPeople = picking !== null || needle.length > 0;
+  const canStartGroup = groupName.trim().length > 0 && selected.length >= 2;
 
   // Empty threads (just opened from a contact button) sort first, like a fresh draft.
   const lastOf = (c: Conversation) => c.messages[c.messages.length - 1] as Conversation['messages'][number] | undefined;
@@ -76,14 +106,28 @@ export default function MessagesScreen() {
       headerBackgroundColor={HEADER_BG}
       headerImage={<ScreenHeader title="Messages" subtitle="Sending arrives in a later phase" />}>
       <View style={styles.intro}>
-        <Button
-          label="New Message"
-          tone="success"
-          onPress={() => {
-            setPicking(true);
-            searchRef.current?.focus();
-          }}
-        />
+        <View style={styles.introButtons}>
+          <Button
+            label="New Message"
+            tone="success"
+            onPress={() => {
+              setSelected([]);
+              setPicking('dm');
+              searchRef.current?.focus();
+            }}
+            style={styles.grow}
+          />
+          <Button
+            label="New Group"
+            tone="navy"
+            onPress={() => {
+              setSelected([]);
+              setPicking('group');
+              searchRef.current?.focus();
+            }}
+            style={styles.grow}
+          />
+        </View>
         <ThemedText style={styles.introNote}>Send a message or call any employee here.</ThemedText>
       </View>
 
@@ -102,10 +146,7 @@ export default function MessagesScreen() {
         />
         {showPeople ? (
           <Pressable
-            onPress={() => {
-              setQuery('');
-              setPicking(false);
-            }}
+            onPress={stopPicking}
             hitSlop={8}
             accessibilityRole="button"
             accessibilityLabel="Close search">
@@ -114,18 +155,53 @@ export default function MessagesScreen() {
         ) : null}
       </View>
 
+      {picking === 'group' ? (
+        <Card>
+          <ThemedText type="defaultSemiBold">New group</ThemedText>
+          <TextInput
+            value={groupName}
+            onChangeText={setGroupName}
+            placeholder="Group name"
+            placeholderTextColor="#7B8B98"
+            autoCapitalize="words"
+            autoCorrect={false}
+            accessibilityLabel="Group name"
+            style={[styles.groupInput, { color: textColor }]}
+          />
+          <ThemedText style={styles.introNote}>{memberNote(selected.length)}</ThemedText>
+          <Button
+            label="Create group"
+            tone="success"
+            disabled={!canStartGroup}
+            onPress={startGroup}
+            style={styles.groupSubmit}
+          />
+        </Card>
+      ) : null}
+
       {showPeople ? (
         <Card style={styles.list}>
           {people.length === 0 ? (
             <ThemedText style={styles.muted}>No one matches that.</ThemedText>
           ) : (
-            people.map((person, i) => (
-              <View key={person.id} style={[styles.personRow, i < people.length - 1 && styles.divider]}>
+            people.map((person, i) => {
+              const inGroup = picking === 'group';
+              const on = selected.includes(person.id);
+              return (
+                <View key={person.id} style={[styles.personRow, i < people.length - 1 && styles.divider]}>
                 <Pressable
-                  onPress={() => openThreadWith(person.id)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Open thread with ${person.short}`}
+                  onPress={() => (inGroup ? toggleMember(person.id) : openThreadWith(person.id))}
+                  accessibilityRole={inGroup ? 'checkbox' : 'button'}
+                  accessibilityState={inGroup ? { checked: on } : undefined}
+                  accessibilityLabel={
+                    inGroup ? `Add ${person.short} to the group` : `Open thread with ${person.short}`
+                  }
                   style={({ pressed }) => [styles.personMain, pressed && styles.pressed]}>
+                  {inGroup ? (
+                    <View style={[styles.check, on && styles.checkOn]}>
+                      {on ? <IconSymbol name="checkmark" size={14} color="#FFFFFF" /> : null}
+                    </View>
+                  ) : null}
                   <View style={styles.avatar}>
                     <ThemedText style={styles.avatarText}>{person.name[0]}</ThemedText>
                   </View>
@@ -137,8 +213,9 @@ export default function MessagesScreen() {
                   </View>
                 </Pressable>
                 <ContactButtons person={person} size="sm" />
-              </View>
-            ))
+                </View>
+              );
+            })
           )}
         </Card>
       ) : null}
@@ -213,6 +290,44 @@ export default function MessagesScreen() {
                       );
                     })}
                     <ThemedText style={styles.threadNote}>Sending and replies arrive with the messaging service.</ThemedText>
+                    {c.group ? (
+                      renamingId === c.id ? (
+                        <View style={styles.renameRow}>
+                          <TextInput
+                            value={renameText}
+                            onChangeText={setRenameText}
+                            placeholder="Group name"
+                            placeholderTextColor="#7B8B98"
+                            autoCapitalize="words"
+                            autoCorrect={false}
+                            autoFocus
+                            accessibilityLabel="New group name"
+                            style={[styles.groupInput, styles.grow, { color: textColor }]}
+                          />
+                          <Button
+                            label="Save"
+                            tone="success"
+                            size="sm"
+                            onPress={() => {
+                              renameConversation(c.id, renameText);
+                              setRenamingId(null);
+                            }}
+                          />
+                        </View>
+                      ) : (
+                        <Button
+                          label="Rename group"
+                          tone="navy"
+                          variant="soft"
+                          size="sm"
+                          accessibilityLabel={`Rename ${titleOf(c)}`}
+                          onPress={() => {
+                            setRenameText(c.name);
+                            setRenamingId(c.id);
+                          }}
+                        />
+                      )
+                    ) : null}
                     <ConfirmButton
                       label="Delete conversation"
                       armedLabel="Tap again to delete"
@@ -245,6 +360,43 @@ const styles = StyleSheet.create({
   intro: {
     gap: 8,
     marginTop: 4,
+  },
+  introButtons: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  grow: {
+    flex: 1,
+  },
+  groupInput: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#888',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    marginTop: 8,
+  },
+  groupSubmit: {
+    marginTop: 10,
+  },
+  check: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    borderColor: '#888',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkOn: {
+    backgroundColor: '#27AE60',
+    borderColor: '#27AE60',
+  },
+  renameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   introNote: {
     fontSize: 13,
