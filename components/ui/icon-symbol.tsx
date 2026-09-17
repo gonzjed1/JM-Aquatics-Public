@@ -42,6 +42,8 @@ const MAPPING = {
   magnifyingglass: 'search',
   plus: 'add',
   'square.and.pencil': 'edit',
+  'trash.fill': 'delete',
+  'person.badge.plus': 'group-add',
   'checkmark.circle.fill': 'check-circle',
   'xmark.circle.fill': 'cancel',
   'arrow.right': 'arrow-forward',

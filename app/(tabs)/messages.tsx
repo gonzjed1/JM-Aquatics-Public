@@ -6,6 +6,7 @@ import { HEADER_BG, ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { ConfirmButton } from '@/components/ui/confirm-button';
 import { ContactButtons } from '@/components/ui/contact-buttons';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Segmented } from '@/components/ui/segmented';
@@ -24,7 +25,7 @@ type View_ = 'direct' | 'groups';
  */
 export default function MessagesScreen() {
   const me = useMe();
-  const { conversations, staff, staffById, today, openDm } = useAppData();
+  const { conversations, staff, staffById, today, openDm, deleteConversation } = useAppData();
   const textColor = useThemeColor({}, 'text');
   const [view, setView] = useState<View_>('direct');
   const [openId, setOpenId] = useState<string | null>(null);
@@ -212,6 +213,18 @@ export default function MessagesScreen() {
                       );
                     })}
                     <ThemedText style={styles.threadNote}>Sending and replies arrive with the messaging service.</ThemedText>
+                    <ConfirmButton
+                      label="Delete conversation"
+                      armedLabel="Tap again to delete"
+                      tone="danger"
+                      variant="outline"
+                      size="sm"
+                      accessibilityLabel={`Delete conversation ${titleOf(c)}`}
+                      onConfirm={() => {
+                        setOpenId(null);
+                        deleteConversation(c.id);
+                      }}
+                    />
                   </View>
                 ) : null}
               </View>

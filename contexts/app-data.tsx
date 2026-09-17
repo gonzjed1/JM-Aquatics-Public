@@ -83,6 +83,12 @@ type AppData = {
   conversations: Conversation[];
   /** The DM between two people, created empty if it doesn't exist yet. Returns its id. */
   openDm: (meId: string, otherId: string) => string;
+  /** Starts a group with these people in it (the creator included). Returns its id. */
+  createGroup: (meId: string, memberIds: string[], name: string) => string;
+  /** Any role can retitle a group they are in. */
+  renameConversation: (conversationId: string, name: string) => void;
+  /** Removes the thread and everything in it. */
+  deleteConversation: (conversationId: string) => void;
   payroll: PayrollLine[];
   /** staffId → weekdays (0 = Sun … 6 = Sat) the person said they can usually work. */
   availability: Record<string, number[]>;
@@ -508,6 +514,26 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     [conversations]
   );
 
+  const createGroup = useCallback((meId: string, memberIds: string[], name: string) => {
+    const id = newId('g');
+    const participants = [meId, ...memberIds.filter((m) => m !== meId)];
+    setConversations((prev) => [
+      ...prev,
+      { id, name: name.trim(), group: true, participants, unread: 0, messages: [] },
+    ]);
+    return id;
+  }, []);
+
+  const renameConversation = useCallback((conversationId: string, name: string) => {
+    const next = name.trim();
+    if (!next) return;
+    setConversations((prev) => prev.map((c) => (c.id === conversationId ? { ...c, name: next } : c)));
+  }, []);
+
+  const deleteConversation = useCallback((conversationId: string) => {
+    setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+  }, []);
+
   const pendingRequests = useMemo(() => requests.filter((r) => r.status === 'pending'), [requests]);
 
   const value = useMemo<AppData>(
@@ -525,6 +551,9 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       activity,
       conversations,
       openDm,
+      createGroup,
+      renameConversation,
+      deleteConversation,
       payroll: PAYROLL,
       availability,
       shiftResponses,
@@ -555,7 +584,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     }),
     [
       staff, staffById, shifts, locations, punches, requests, pendingRequests, pendingOffers, activity, availability,
-      shiftResponses, notifications, conversations, openDm,
+      shiftResponses, notifications, conversations, openDm, createGroup, renameConversation, deleteConversation,
       isClockedIn, punchesFor, clockedInNow, shiftsFor, openShiftsFor, awaitingFor, answerFor, responsesFor,
       notificationsFor, unreadNotificationsFor, prefsFor, setNotificationPref,
       clockIn, clockOut, addShift, updateShift, addStaff, setStaffRole, setRequestStatus, submitAvailability,
