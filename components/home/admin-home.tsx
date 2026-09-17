@@ -25,14 +25,14 @@ import { isOpen, openSlots, shiftLabel, shiftTimePlace } from '@/data/shifts';
 export function AdminHome() {
   const router = useRouter();
   const me = useMe();
-  const { today, weekStart, shifts, pendingRequests, pendingOffers, activity } = useAppData();
+  const { today, shifts, pendingRequests, pendingOffers, activity } = useAppData();
 
-  const weekEnd = addDays(weekStart, 6);
-  const weekShifts = shifts.filter((s) => s.date >= weekStart && s.date <= weekEnd);
   const todays = shifts.filter((s) => s.date === today).sort(byStart);
   const staffToday = new Set(todays.flatMap((s) => s.assigned)).size;
-  const openShifts = weekShifts.filter(isOpen).length;
   const openUpcoming = shifts.filter((s) => s.date >= today && isOpen(s)).sort(byStart);
+  // The number that matters is how many people are still needed for the next
+  // shift with a gap — a count of open shifts says nothing about the urgency.
+  const staffNeeded = openUpcoming.length ? openSlots(openUpcoming[0]) : 0;
   // Open slots inside the next 48 hours — today and tomorrow on the frozen demo day.
   const urgent = openUpcoming.filter((s) => s.date <= addDays(today, 1));
 
@@ -77,7 +77,13 @@ export function AdminHome() {
         <ThemedText style={styles.muted}>{formatDayDateYear(today)}</ThemedText>
         <View style={styles.tiles}>
           <StatTile value={staffToday} label="Staff Today" color="#2F6FB2" onPress={() => router.push({ pathname: '/more/staff-today', params: { from: 'home' } })} />
-          <StatTile value={openShifts} label="Open Shifts" color="#27AE60" onPress={() => router.push({ pathname: '/more/open-shifts', params: { from: 'home' } })} />
+          <StatTile
+            value={staffNeeded}
+            label="Open Shifts / Staff Needed"
+            singleLineLabel
+            color={staffNeeded > 0 ? '#E5484D' : '#27AE60'}
+            onPress={() => router.push({ pathname: '/more/open-shifts', params: { from: 'home' } })}
+          />
           <StatTile
             value={pendingRequests.length + pendingOffers.length}
             label="Pending Requests"

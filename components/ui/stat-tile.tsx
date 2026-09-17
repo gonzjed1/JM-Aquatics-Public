@@ -9,6 +9,7 @@ export function StatTile({
   label,
   color,
   onPress,
+  singleLineLabel = false,
 }: {
   value: string | number;
   label: string;
@@ -16,13 +17,19 @@ export function StatTile({
   color?: string;
   /** Makes the tile a button that opens the detail behind the number. */
   onPress?: () => void;
+  /** Keeps a two-part label like 'Open Shifts / Staff Needed' on one line. */
+  singleLineLabel?: boolean;
 }) {
   const body = (
     <ThemedView style={styles.tile}>
       <ThemedText type="title" style={[styles.value, color ? { color } : undefined]}>
         {value}
       </ThemedText>
-      <ThemedText style={styles.label}>{label}</ThemedText>
+      <ThemedText
+        style={[styles.label, singleLineLabel && styles.labelTight]}
+        numberOfLines={singleLineLabel ? 1 : undefined}>
+        {label}
+      </ThemedText>
     </ThemedView>
   );
 
@@ -62,6 +69,11 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     opacity: 0.7,
     textAlign: 'center',
+  },
+  labelTight: {
+    fontSize: 10,
+    lineHeight: 14,
+    letterSpacing: -0.1,
   },
   pressed: {
     opacity: 0.6,
