@@ -11,6 +11,19 @@ One [Expo](https://expo.dev) / React Native codebase ships three targets: **iOS*
 
 **Current build:** demo login with three personas — Worker, Mike (Admin), and Jed (Owner). Real per-person accounts and roles arrive with Azure sign-in in Phase 4. Every screen is built and runs on mock data (a frozen demo day, Thu Aug 7 2025); the backend — the existing Azure-hosted Postgres API — comes with that same phase. Until then the login screen is a demo gate, not security.
 
+## What's next
+
+**In-app messaging — Phase 3.** Direct messages, group chats, and an all-staff channel, all inside the app. This is the piece that makes employee contact fully organized: conversations live next to the schedule they're about, stay searchable, and don't depend on anyone's personal phone or on Jed keeping a dozen text threads straight.
+
+One limit worth knowing up front: iPhone does not allow any app to read or send SMS. Texts sent from the phone's own Messages app can never show up here, and no amount of work changes that — it's an Apple restriction, not a design choice. Until in-app messaging ships, the **Message** buttons throughout the app are a stopgap: they hand off to the phone's messaging app.
+
+Two ways to build it — **a decision we need from Jed**:
+
+- **In-house.** We build and own the messaging layer. No monthly fee, and nothing depends on an outside company. Full Phase 3 estimate.
+- **Managed chat service** (Stream, Firebase). Delivery, typing indicators, read receipts, and offline sync come working out of the box. Cuts Phase 3 by roughly 25–35% in exchange for a monthly fee that scales with how much the team uses it.
+
+**Push notifications — Phase 4.** Shift reminders, new open shifts, new messages, and approvals waiting on someone arrive as real phone notifications. They come with the backend in Phase 4, and they need a development build of the app rather than Expo Go — Expo Go can't deliver them — so that's the point where the app moves to TestFlight and internal Android distribution for testing.
+
 ## Roles
 
 Three tiers, enforced in `constants/permissions.ts` and again at the route level.
@@ -61,7 +74,7 @@ From the Expo menu press `w` for web, `a` for Android, `i` for iOS, or go straig
 npx expo start --web
 ```
 
-On the login screen tap **Employee** or **Admin**, then sign in with one of the three demo accounts (ask Ben for the credentials — they aren't printed here or in the app). Your screens come from the account, not the button; the Admin path also asks for the admin PIN after sign-in. All accounts share one in-memory data store, so signing out as Jed and back in as the worker shows the effects of what Jed just did — handy for demos.
+On the login screen tap **Employee** or **Admin**, then sign in with one of the three demo accounts. Your screens come from the account, not the button; the Admin path also asks for the admin PIN after sign-in. All accounts share one in-memory data store, so signing out as Jed and back in as the worker shows the effects of what Jed just did — handy for demos.
 
 Before calling a change done:
 
@@ -70,6 +83,10 @@ npx tsc --noEmit
 npx expo lint
 npx expo export --platform web
 ```
+
+## Testing the demo
+
+Credentials for the three demo accounts, and the admin PIN, are shared privately with Jed and anyone else testing. They are deliberately not in this repo, not in this file, and not shown anywhere in the app. Ask Ben if you need them.
 
 ## Where things live
 
