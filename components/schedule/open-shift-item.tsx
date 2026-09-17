@@ -1,7 +1,7 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import { AnswerButtons, confirmHint, useAnswerConfirm } from '@/components/schedule/answer-buttons';
 import { ThemedText } from '@/components/themed-text';
-import { IconSymbol } from '@/components/ui/icon-symbol';
 import { formatDayDate } from '@/data/format';
 import type { Shift, ShiftAnswer } from '@/data/mock-seed';
 import { openSlots, shiftLabel, shiftTimePlace } from '@/data/shifts';
@@ -19,6 +19,9 @@ type Props = {
 export function OpenShiftItem({ shift, answer, isNew = false, onAnswer, last = false }: Props) {
   const label = shiftLabel(shift);
   const open = openSlots(shift);
+  // Two taps: an answer goes straight to Jed, so a stray thumb shouldn't send it.
+  const { armed, tap } = useAnswerConfirm(onAnswer);
+  const hint = confirmHint(armed);
 
   return (
     <View style={[styles.row, !last && styles.divider]}>
@@ -33,43 +36,22 @@ export function OpenShiftItem({ shift, answer, isNew = false, onAnswer, last = f
         </View>
         <ThemedText>{shiftTimePlace(shift)}</ThemedText>
         <ThemedText style={styles.muted}>{open === 1 ? '1 open slot' : `${open} open slots`}</ThemedText>
-        {answer ? (
+        {hint ? (
+          <ThemedText style={[styles.answer, armed === 'yes' ? styles.yesText : styles.noText]}>{hint}</ThemedText>
+        ) : answer ? (
           <ThemedText style={[styles.answer, answer === 'yes' ? styles.yesText : styles.noText]}>
             {answer === 'yes' ? 'You said ✓ Available' : 'You said ✗ Not available'}
           </ThemedText>
         ) : null}
       </View>
 
-      <View style={styles.buttons}>
-        <Pressable
-          onPress={() => onAnswer('yes')}
-          accessibilityRole="button"
-          accessibilityLabel={`Available for ${label}`}
-          accessibilityState={{ selected: answer === 'yes' }}
-          hitSlop={6}
-          style={({ pressed }) => [
-            styles.circle,
-            styles.yesCircle,
-            answer === 'yes' && styles.yesOn,
-            pressed && styles.pressed,
-          ]}>
-          <IconSymbol name="checkmark" size={20} color={answer === 'yes' ? '#FFFFFF' : '#27AE60'} />
-        </Pressable>
-        <Pressable
-          onPress={() => onAnswer('no')}
-          accessibilityRole="button"
-          accessibilityLabel={`Not available for ${label}`}
-          accessibilityState={{ selected: answer === 'no' }}
-          hitSlop={6}
-          style={({ pressed }) => [
-            styles.circle,
-            styles.noCircle,
-            answer === 'no' && styles.noOn,
-            pressed && styles.pressed,
-          ]}>
-          <IconSymbol name="xmark" size={20} color={answer === 'no' ? '#FFFFFF' : '#E5484D'} />
-        </Pressable>
-      </View>
+      <AnswerButtons
+        answer={answer}
+        armed={armed}
+        onTap={tap}
+        yesLabel={`Available for ${label}`}
+        noLabel={`Not available for ${label}`}
+      />
     </View>
   );
 }
@@ -122,32 +104,5 @@ const styles = StyleSheet.create({
   },
   noText: {
     color: '#E5484D',
-  },
-  buttons: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  circle: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-  },
-  yesCircle: {
-    borderColor: '#27AE60',
-  },
-  yesOn: {
-    backgroundColor: '#27AE60',
-  },
-  noCircle: {
-    borderColor: '#E5484D',
-  },
-  noOn: {
-    backgroundColor: '#E5484D',
-  },
-  pressed: {
-    opacity: 0.7,
   },
 });
