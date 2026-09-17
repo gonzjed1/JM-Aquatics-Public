@@ -43,6 +43,7 @@ export function EmployeeHome() {
     notificationsFor,
     unreadNotificationsFor,
     markNotificationsRead,
+    prefsFor,
   } = useAppData();
   const meId = me?.id ?? '';
 
@@ -82,7 +83,10 @@ export function EmployeeHome() {
 
   const open = openShiftsFor(me.id);
   const preview = open.slice(0, OPEN_SHIFT_PREVIEW);
-  const newCount = open.filter((s) => newShiftIds.has(s.id)).length;
+  // Muting Shifts silences the flags, not the work: the open shifts stay
+  // answerable, they just stop announcing themselves.
+  const flagNew = prefsFor(me.id).shifts;
+  const newCount = flagNew ? open.filter((s) => newShiftIds.has(s.id)).length : 0;
 
   const recent = notificationsFor(me.id).slice(0, ACTIVITY_PREVIEW);
   // A posting is something to act on, so it says what to do and opens the
@@ -180,7 +184,7 @@ export function EmployeeHome() {
               key={shift.id}
               shift={shift}
               answer={answerFor(shift.id, me.id)}
-              isNew={newShiftIds.has(shift.id)}
+              isNew={flagNew && newShiftIds.has(shift.id)}
               onAnswer={(answer) => respondToShift(shift.id, me.id, answer)}
               last={i === preview.length - 1}
             />
