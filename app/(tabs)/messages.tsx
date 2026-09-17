@@ -1,5 +1,4 @@
-import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import ParallaxScrollView from '@/components/parallax-scroll-view';
@@ -41,17 +40,6 @@ export default function MessagesScreen() {
     setQuery('');
     setPicking(false);
   };
-
-  // A "message" button elsewhere lands here with ?dm=<staffId>; open that thread straight away.
-  const { dm, t } = useLocalSearchParams<{ dm?: string; t?: string }>();
-  useEffect(() => {
-    if (!dm || !meId) return;
-    setView('direct');
-    setOpenId(openDm(meId, dm));
-    setQuery('');
-    setPicking(false);
-    // `t` changes on every press so the same person can be opened twice in a row.
-  }, [dm, t, meId, openDm]);
 
   if (!me) return null;
 

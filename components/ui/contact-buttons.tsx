@@ -1,4 +1,3 @@
-import { useRouter } from 'expo-router';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -9,27 +8,30 @@ const MESSAGE = '#2F6FB2';
 
 /**
  * Call + message for one person — the pair that sits beside a name anywhere an
- * employee shows up on an owner/admin screen. Call hands off to the phone app;
- * message jumps to the Messages tab with that person's thread open.
+ * employee shows up on an owner/admin screen.
+ *
+ * Both buttons hand the conversation to the phone for now: `tel:` opens the
+ * dialler, `sms:` opens the phone's messaging app with the number filled in.
+ *
+ * PHASE 3 — in-app messaging: the message button switches to opening that
+ * person's DM thread inside the app and stops leaving it; the call button
+ * stays as it is. Nothing sent through the phone's own messaging app can ever
+ * be read back into this one (iOS gives no app access to SMS), which is why
+ * in-app DMs are the real fix rather than a nicety.
  */
 export function ContactButtons({ person, size = 'md' }: { person: StaffMember; size?: 'md' | 'sm' }) {
-  const router = useRouter();
   const dim = size === 'sm' ? 30 : 34;
   const icon = size === 'sm' ? 16 : 18;
 
-  const call = () => {
-    const digits = person.phone.replace(/[^\d+]/g, '');
-    if (digits) Linking.openURL(`tel:${digits}`);
-  };
-  const message = () => {
-    // A fresh stamp each time so landing on the same person twice still reopens the thread.
-    router.push({ pathname: '/messages', params: { dm: person.id, t: String(Date.now()) } });
+  const digits = person.phone.replace(/[^\d+]/g, '');
+  const open = (url: string) => {
+    if (digits) Linking.openURL(url);
   };
 
   return (
     <View style={styles.pair}>
       <Pressable
-        onPress={call}
+        onPress={() => open(`tel:${digits}`)}
         hitSlop={6}
         accessibilityRole="button"
         accessibilityLabel={`Call ${person.short}`}
@@ -37,7 +39,7 @@ export function ContactButtons({ person, size = 'md' }: { person: StaffMember; s
         <IconSymbol name="phone.fill" size={icon} color={CALL} />
       </Pressable>
       <Pressable
-        onPress={message}
+        onPress={() => open(`sms:${digits}`)}
         hitSlop={6}
         accessibilityRole="button"
         accessibilityLabel={`Message ${person.short}`}
