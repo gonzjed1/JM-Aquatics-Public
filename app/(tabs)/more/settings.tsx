@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { StyleSheet, Switch, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { StyleSheet, View } from 'react-native';
 
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { HEADER_BG, ScreenHeader } from '@/components/screen-header';
@@ -17,26 +17,22 @@ import { useBack } from '@/hooks/use-back';
  */
 export default function SettingsScreen() {
   const back = useBack();
+  const router = useRouter();
   const { role } = useAuth();
   const { locations } = useAppData();
-  const [shiftAlerts, setShiftAlerts] = useState(true);
-  const [messageAlerts, setMessageAlerts] = useState(true);
-  const [reminders, setReminders] = useState(role === 'worker');
 
   return (
     <ParallaxScrollView
       headerBackgroundColor={HEADER_BG}
       headerImage={<ScreenHeader title="Settings" />}
       onBack={back}>
-      <Card>
-        <ThemedText type="defaultSemiBold">Notifications</ThemedText>
-        <Toggle label="Shift changes" value={shiftAlerts} onChange={setShiftAlerts} />
-        <Toggle label="New messages" value={messageAlerts} onChange={setMessageAlerts} />
-        <Toggle
-          label={role === 'worker' ? 'Clock-in reminders' : 'Approval requests'}
-          value={reminders}
-          onChange={setReminders}
-          last
+      <Card style={styles.linkCard}>
+        <ListRow
+          icon="bell.fill"
+          title="Notifications"
+          subtitle="Shifts, messages, updates"
+          chevron
+          onPress={() => router.push({ pathname: '/more/notifications', params: { from: 'settings' } })}
         />
       </Card>
 
@@ -67,25 +63,6 @@ export default function SettingsScreen() {
   );
 }
 
-function Toggle({
-  label,
-  value,
-  onChange,
-  last = false,
-}: {
-  label: string;
-  value: boolean;
-  onChange: (next: boolean) => void;
-  last?: boolean;
-}) {
-  return (
-    <View style={[styles.line, !last && styles.divider]}>
-      <ThemedText style={styles.grow}>{label}</ThemedText>
-      <Switch value={value} onValueChange={onChange} accessibilityLabel={label} />
-    </View>
-  );
-}
-
 function Line({ label, value, last = false }: { label: string; value: string; last?: boolean }) {
   return (
     <View style={[styles.line, !last && styles.divider]}>
@@ -98,6 +75,9 @@ function Line({ label, value, last = false }: { label: string; value: string; la
 }
 
 const styles = StyleSheet.create({
+  linkCard: {
+    paddingVertical: 2,
+  },
   line: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -108,9 +88,6 @@ const styles = StyleSheet.create({
   divider: {
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#888',
-  },
-  grow: {
-    flex: 1,
   },
   muted: {
     opacity: 0.65,

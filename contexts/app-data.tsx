@@ -50,6 +50,14 @@ export type AssignableRole = 'worker' | 'admin';
 /** Who said what about one shift: ✓ first, ✗ second, everyone else pending. */
 export type ResponseGroups = { yes: StaffMember[]; no: StaffMember[]; pending: StaffMember[] };
 
+/**
+ * What a person can be told about. Every topic is on until they turn it off,
+ * and the switch is per account — Jed muting messages doesn't mute anyone else.
+ */
+export type NotificationTopic = 'shifts' | 'messages' | 'updates';
+export type NotificationPrefs = Record<NotificationTopic, boolean>;
+export const ALL_TOPICS_ON: NotificationPrefs = { shifts: true, messages: true, updates: true };
+
 /** A worker who said ✓ to a shift that still has room and hasn't been put on it yet. */
 export type ShiftOffer = { shift: Shift; staff: StaffMember };
 
@@ -93,8 +101,11 @@ type AppData = {
   awaitingFor: (staffId: string) => Shift[];
   answerFor: (shiftId: string, staffId: string) => ShiftAnswer | undefined;
   responsesFor: (shiftId: string) => ResponseGroups;
-  /** Everything addressed to this person, newest first. */
+  /** Everything addressed to this person, newest first. Muted topics are left out. */
   notificationsFor: (staffId: string) => AppNotification[];
+  /** This person's notification switches; every topic defaults to on. */
+  prefsFor: (staffId: string) => NotificationPrefs;
+  setNotificationPref: (staffId: string, topic: NotificationTopic, on: boolean) => void;
   unreadNotificationsFor: (staffId: string) => AppNotification[];
 
   clockIn: (staffId: string, location: Location) => void;
@@ -161,6 +172,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
   const [shiftResponses, setShiftResponses] = useState<ShiftResponses>(SHIFT_RESPONSES);
   const [notifications, setNotifications] = useState<AppNotification[]>(NOTIFICATIONS);
   const [conversations, setConversations] = useState<Conversation[]>(CONVERSATIONS);
+  // Nobody has changed a switch yet, so everyone is on everything.
+  const [notificationPrefs, setNotificationPrefs] = useState<Record<string, NotificationPrefs>>({});
 
   const staffById = useCallback((id: string) => staff.find((s) => s.id === id), [staff]);
   const firstName = useCallback((id: string) => staffById(id)?.short.split(' ')[0] ?? id, [staffById]);
@@ -374,14 +387,29 @@ export function AppDataProvider({ children }: PropsWithChildren) {
 
   // --- notifications ------------------------------------------------------------
 
+  const prefsFor = useCallback(
+    (staffId: string): NotificationPrefs => notificationPrefs[staffId] ?? ALL_TOPICS_ON,
+    [notificationPrefs]
+  );
+
+  const setNotificationPref = useCallback((staffId: string, topic: NotificationTopic, on: boolean) => {
+    setNotificationPrefs((prev) => ({
+      ...prev,
+      [staffId]: { ...(prev[staffId] ?? ALL_TOPICS_ON), [topic]: on },
+    }));
+  }, []);
+
   const notificationsFor = useCallback(
     (staffId: string) => {
       const audience = staffById(staffId)?.role === 'worker' ? 'workers' : 'admin';
+      // Everything in here is a shift matter today; when messages and updates
+      // start raising notifications they check their own switch the same way.
+      if (!prefsFor(staffId).shifts) return [];
       return notifications
         .filter((n) => n.audience === audience && (!n.toStaff || n.toStaff.includes(staffId)))
         .sort((a, b) => b.at.localeCompare(a.at));
     },
-    [notifications, staffById]
+    [notifications, prefsFor, staffById]
   );
 
   const unreadNotificationsFor = useCallback(
@@ -511,6 +539,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       responsesFor,
       notificationsFor,
       unreadNotificationsFor,
+      prefsFor,
+      setNotificationPref,
       clockIn,
       clockOut,
       addShift,
@@ -527,7 +557,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       staff, staffById, shifts, locations, punches, requests, pendingRequests, pendingOffers, activity, availability,
       shiftResponses, notifications, conversations, openDm,
       isClockedIn, punchesFor, clockedInNow, shiftsFor, openShiftsFor, awaitingFor, answerFor, responsesFor,
-      notificationsFor, unreadNotificationsFor,
+      notificationsFor, unreadNotificationsFor, prefsFor, setNotificationPref,
       clockIn, clockOut, addShift, updateShift, addStaff, setStaffRole, setRequestStatus, submitAvailability,
       respondToShift, assignToShift, markNotificationsRead,
     ]

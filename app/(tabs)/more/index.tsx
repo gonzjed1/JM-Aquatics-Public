@@ -57,12 +57,13 @@ export default function MoreScreen() {
   }
 
   const settingsSubtitle = can(role, 'editPayRules')
-    ? 'Locations, pay rules, notifications'
+    ? 'Locations and pay rules'
     : can(role, 'manageSchedule')
-      ? 'Locations, notifications'
-      : 'Notifications, preferences';
+      ? 'Locations and preferences'
+      : 'App preferences';
 
   rows.push(
+    { key: 'notifications', icon: 'bell.fill', tint: '#2F6FB2', title: 'Notifications', subtitle: "What you're told about", href: '/more/notifications' },
     { key: 'settings', icon: 'gearshape.fill', tint: '#687076', title: 'Settings', subtitle: settingsSubtitle, href: '/more/settings' },
     { key: 'help', icon: 'questionmark.circle.fill', title: 'Help & Support', href: '/more/help' }
   );
