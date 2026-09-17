@@ -11,6 +11,7 @@ import {
   PAYROLL,
   PUNCHES,
   REQUESTS,
+  LOCATIONS,
   SHIFTS,
   SHIFT_RESPONSES,
   STAFF,
@@ -40,6 +41,8 @@ import { isOpen, shiftLabel, shiftsOverlap } from '@/data/shifts';
  */
 
 export type NewShift = Omit<Shift, 'id' | 'assigned'> & { assigned?: string[] };
+/** The fields a shift can be edited to. Who is on it changes through assignToShift. */
+export type ShiftEdit = Omit<Shift, 'id' | 'assigned'>;
 export type NewStaff = { name: string; phone: string };
 /** The tiers an owner can move someone between. Nobody is made owner from the app. */
 export type AssignableRole = 'worker' | 'admin';
@@ -56,6 +59,8 @@ type AppData = {
   staff: StaffMember[];
   staffById: (id: string) => StaffMember | undefined;
   shifts: Shift[];
+  /** Every location a shift can be given: the seeded pools plus any Jed has typed in, A–Z. */
+  locations: Location[];
   punches: Punch[];
   requests: ApprovalRequest[];
   pendingRequests: ApprovalRequest[];
@@ -96,6 +101,8 @@ type AppData = {
   clockOut: (staffId: string) => void;
   /** Posts the shift and notifies every worker. */
   addShift: (shift: NewShift) => void;
+  /** Changes an existing shift's date, time, location or slot count. */
+  updateShift: (shiftId: string, edit: ShiftEdit) => void;
   addStaff: (person: NewStaff) => void;
   setStaffRole: (staffId: string, role: AssignableRole) => void;
   setRequestStatus: (id: string, status: RequestStatus) => void;
@@ -213,6 +220,13 @@ export function AppDataProvider({ children }: PropsWithChildren) {
 
   // --- schedule -----------------------------------------------------------------
 
+  // A location typed into the shift form is remembered by the shift itself, so
+  // the picker is simply everything in use plus the seeded pools.
+  const locations = useMemo(
+    () => [...new Set([...LOCATIONS, ...shifts.map((s) => s.location)])].sort((a, b) => a.localeCompare(b)),
+    [shifts]
+  );
+
   const shiftsFor = useCallback(
     (staffId: string) => shifts.filter((s) => s.assigned.includes(staffId)).sort(byStart),
     [shifts]
@@ -295,6 +309,20 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       logActivity({ kind: 'shift', who: actor, text: `Posted ${shiftLabel(posted)}` });
     },
     [actor, logActivity]
+  );
+
+  const updateShift = useCallback(
+    (shiftId: string, edit: ShiftEdit) => {
+      const before = shifts.find((s) => s.id === shiftId);
+      if (!before) return;
+      // Slots can't drop below the people already on it — that would make the
+      // shift over-full and hide them from the roster.
+      const slots = Math.max(edit.slots, before.assigned.length);
+      const after: Shift = { ...before, ...edit, slots };
+      setShifts((prev) => prev.map((s) => (s.id === shiftId ? after : s)).sort(byStart));
+      logActivity({ kind: 'shift', who: actor, text: `Updated ${shiftLabel(after)}` });
+    },
+    [actor, logActivity, shifts]
   );
 
   const respondToShift = useCallback(
@@ -461,6 +489,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       staff,
       staffById,
       shifts,
+      locations,
       punches,
       requests,
       pendingRequests,
@@ -485,6 +514,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       clockIn,
       clockOut,
       addShift,
+      updateShift,
       addStaff,
       setStaffRole,
       setRequestStatus,
@@ -494,11 +524,11 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       markNotificationsRead,
     }),
     [
-      staff, staffById, shifts, punches, requests, pendingRequests, pendingOffers, activity, availability,
+      staff, staffById, shifts, locations, punches, requests, pendingRequests, pendingOffers, activity, availability,
       shiftResponses, notifications, conversations, openDm,
       isClockedIn, punchesFor, clockedInNow, shiftsFor, openShiftsFor, awaitingFor, answerFor, responsesFor,
       notificationsFor, unreadNotificationsFor,
-      clockIn, clockOut, addShift, addStaff, setStaffRole, setRequestStatus, submitAvailability,
+      clockIn, clockOut, addShift, updateShift, addStaff, setStaffRole, setRequestStatus, submitAvailability,
       respondToShift, assignToShift, markNotificationsRead,
     ]
   );

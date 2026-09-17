@@ -21,8 +21,12 @@ export const MOCK_WEEK_START = '2025-08-04';
 /** Pay period the Pay and Payroll screens open on. */
 export const MOCK_PAY_PERIOD = { start: '2025-08-01', end: '2025-08-15' };
 
-/** The two pools J&M staffs. */
-export type Location = 'LA Fitness Bowie' | 'SPRFC Severna Park';
+/**
+ * Where a shift happens. Free text, not a closed set: Jed can type a new pool
+ * into the shift form and it joins the picker from then on (`locations` in the
+ * store). LOCATIONS is only the seeded starting list.
+ */
+export type Location = string;
 export const LOCATIONS: Location[] = ['LA Fitness Bowie', 'SPRFC Severna Park'];
 
 export type StaffMember = {

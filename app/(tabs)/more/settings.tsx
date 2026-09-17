@@ -7,8 +7,8 @@ import { ThemedText } from '@/components/themed-text';
 import { Card } from '@/components/ui/card';
 import { ListRow } from '@/components/ui/list-row';
 import { can } from '@/constants/permissions';
+import { useAppData } from '@/contexts/app-data';
 import { useAuth } from '@/contexts/auth-context';
-import { LOCATIONS } from '@/data/mock-seed';
 import { useBack } from '@/hooks/use-back';
 
 /**
@@ -18,6 +18,7 @@ import { useBack } from '@/hooks/use-back';
 export default function SettingsScreen() {
   const back = useBack();
   const { role } = useAuth();
+  const { locations } = useAppData();
   const [shiftAlerts, setShiftAlerts] = useState(true);
   const [messageAlerts, setMessageAlerts] = useState(true);
   const [reminders, setReminders] = useState(role === 'worker');
@@ -42,7 +43,8 @@ export default function SettingsScreen() {
       {can(role, 'manageSchedule') ? (
         <Card>
           <ThemedText type="defaultSemiBold">Locations</ThemedText>
-          {LOCATIONS.map((loc) => (
+          <ThemedText style={styles.note}>{"Every location in use — new ones are added from the shift form."}</ThemedText>
+          {locations.map((loc) => (
             <ListRow key={loc} icon="mappin.and.ellipse" title={loc} />
           ))}
         </Card>

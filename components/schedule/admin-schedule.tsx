@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { AssignedPeople } from '@/components/schedule/assigned-people';
+import { ShiftForm } from '@/components/schedule/shift-form';
 import { ShiftResponses, responseSummary } from '@/components/schedule/shift-responses';
 import { ShiftRow } from '@/components/schedule/shift-row';
 import { HEADER_BG, ScreenHeader } from '@/components/screen-header';
@@ -13,15 +14,9 @@ import { ContactButtons } from '@/components/ui/contact-buttons';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ListRow } from '@/components/ui/list-row';
 import { Segmented } from '@/components/ui/segmented';
-import { useAppData, type NewShift } from '@/contexts/app-data';
-import {
-  addDays,
-  formatClock,
-  formatDateRange,
-  formatDayDate,
-  formatDayDateYear,
-} from '@/data/format';
-import { LOCATIONS, type Location } from '@/data/mock-seed';
+import { useAppData, type ShiftEdit } from '@/contexts/app-data';
+import { addDays, formatDateRange, formatDayDate, formatDayDateYear } from '@/data/format';
+import { LOCATIONS, type Shift } from '@/data/mock-seed';
 
 type View_ = 'week' | 'day' | 'staff';
 
@@ -31,12 +26,13 @@ type View_ = 'week' | 'day' | 'staff';
  * with an Assign button on the ✓ names while the shift has room.
  */
 export function AdminSchedule() {
-  const { today, weekStart: initialWeekStart, shifts, staff, addShift, responsesFor } = useAppData();
+  const { today, weekStart: initialWeekStart, shifts, staff, addShift, updateShift, responsesFor } = useAppData();
   const [view, setView] = useState<View_>('week');
   const [weekStart, setWeekStart] = useState(initialWeekStart);
   const [day, setDay] = useState(today);
   const [adding, setAdding] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const weekEnd = addDays(weekStart, 6);
@@ -68,15 +64,19 @@ export function AdminSchedule() {
         />
       }>
       {adding ? (
-        <AddShiftCard
-          initialDate={today}
-          onAdd={(shift) => {
+        <ShiftForm
+          title="New shift"
+          initial={{ date: today, start: '09:00', end: '13:00', location: LOCATIONS[0], slots: 3 }}
+          submitLabel="Add Shift"
+          hint={"Every instructor is notified the moment it's posted."}
+          onSubmit={(shift) => {
             addShift(shift);
             setAdding(false);
             setView('week');
             setWeekStart(mondayOf(shift.date));
             setNotice('Posted — instructors have been notified.');
           }}
+          onCancel={() => setAdding(false)}
         />
       ) : null}
 
@@ -119,7 +119,17 @@ export function AdminSchedule() {
                     />
                     {open ? (
                       <View style={[styles.panelWrap, !isLast && styles.divider]}>
-                        <ShiftResponses shift={shift} canAssign />
+                        <ShiftPanel
+                          shift={shift}
+                          upcoming={upcoming}
+                          editing={editing === shift.id}
+                          onEdit={() => setEditing(editing === shift.id ? null : shift.id)}
+                          onSave={(edit) => {
+                            updateShift(shift.id, edit);
+                            setEditing(null);
+                            setNotice('Shift updated.');
+                          }}
+                        />
                       </View>
                     ) : null}
                   </View>
@@ -148,9 +158,18 @@ export function AdminSchedule() {
                   <View key={shift.id}>
                     <ShiftRow shift={shift} showFill last />
                     <View style={[styles.panelWrap, !isLast && styles.divider]}>
-                      <ThemedText style={styles.rosterTitle}>On it</ThemedText>
-                      <AssignedPeople shift={shift} />
-                      {upcoming ? <ShiftResponses shift={shift} canAssign /> : null}
+                      <ShiftPanel
+                        shift={shift}
+                        upcoming={upcoming}
+                        showRoster
+                        editing={editing === shift.id}
+                        onEdit={() => setEditing(editing === shift.id ? null : shift.id)}
+                        onSave={(edit) => {
+                          updateShift(shift.id, edit);
+                          setEditing(null);
+                          setNotice('Shift updated.');
+                        }}
+                      />
                     </View>
                   </View>
                 );
@@ -187,66 +206,54 @@ export function AdminSchedule() {
   );
 }
 
-// --- add shift form -------------------------------------------------------------------
+// --- one shift, expanded --------------------------------------------------------------
 
-function AddShiftCard({ initialDate, onAdd }: { initialDate: string; onAdd: (shift: NewShift) => void }) {
-  const [location, setLocation] = useState<Location>(LOCATIONS[0]);
-  const [date, setDate] = useState(initialDate);
-  const [start, setStart] = useState('09:00');
-  const [end, setEnd] = useState('13:00');
-  const [slots, setSlots] = useState(3);
-  const valid = end > start;
-
+/** Who's on a shift and who has answered it, with Jed's Edit shift form behind a button. */
+function ShiftPanel({
+  shift,
+  upcoming,
+  showRoster = false,
+  editing,
+  onEdit,
+  onSave,
+}: {
+  shift: Shift;
+  upcoming: boolean;
+  showRoster?: boolean;
+  editing: boolean;
+  onEdit: () => void;
+  onSave: (edit: ShiftEdit) => void;
+}) {
   return (
-    <Card style={styles.form}>
-      <ThemedText type="subtitle">New shift</ThemedText>
-
-      <ThemedText style={styles.label}>Location</ThemedText>
-      <View style={styles.chips}>
-        {LOCATIONS.map((loc) => (
-          <Pressable
-            key={loc}
-            onPress={() => setLocation(loc)}
-            accessibilityRole="button"
-            accessibilityState={{ selected: loc === location }}
-            style={[styles.chip, loc === location && styles.chipSelected]}>
-            <ThemedText style={[styles.chipText, loc === location && styles.chipTextSelected]}>
-              {loc}
-            </ThemedText>
-          </Pressable>
-        ))}
-      </View>
-
-      <Stepper label="Date" value={formatDayDate(date)} onPrev={() => setDate(addDays(date, -1))} onNext={() => setDate(addDays(date, 1))} />
-      <Stepper label="Start" value={formatClock(start)} onPrev={() => setStart(shiftTime(start, -30))} onNext={() => setStart(shiftTime(start, 30))} />
-      <Stepper label="End" value={formatClock(end)} onPrev={() => setEnd(shiftTime(end, -30))} onNext={() => setEnd(shiftTime(end, 30))} />
-      <Stepper label="Slots" value={String(slots)} onPrev={() => setSlots(Math.max(1, slots - 1))} onNext={() => setSlots(Math.min(10, slots + 1))} />
-
-      {!valid ? <ThemedText style={styles.error}>End time has to be after the start.</ThemedText> : null}
-      <Button
-        label="Add Shift"
-        tone="success"
-        disabled={!valid}
-        onPress={() => onAdd({ date, start, end, location, slots })}
-        style={styles.submit}
-      />
-      <ThemedText style={styles.hint}>{"Every instructor is notified the moment it's posted."}</ThemedText>
-    </Card>
-  );
-}
-
-function Stepper({ label, value, onPrev, onNext }: { label: string; value: string; onPrev: () => void; onNext: () => void }) {
-  return (
-    <View style={styles.stepper}>
-      <ThemedText style={styles.stepperLabel}>{label}</ThemedText>
-      <Pressable onPress={onPrev} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Previous ${label}`}>
-        <IconSymbol name="chevron.left" size={22} color="#687076" />
-      </Pressable>
-      <ThemedText type="defaultSemiBold" style={styles.stepperValue}>{value}</ThemedText>
-      <Pressable onPress={onNext} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Next ${label}`}>
-        <IconSymbol name="chevron.right" size={22} color="#687076" />
-      </Pressable>
-    </View>
+    <>
+      {showRoster ? (
+        <>
+          <ThemedText style={styles.rosterTitle}>On it</ThemedText>
+          <AssignedPeople shift={shift} />
+        </>
+      ) : null}
+      {upcoming ? <ShiftResponses shift={shift} canAssign /> : null}
+      {upcoming ? (
+        <Button
+          label={editing ? 'Cancel edit' : 'Edit shift'}
+          tone="navy"
+          variant="soft"
+          size="sm"
+          onPress={onEdit}
+          style={styles.editButton}
+        />
+      ) : null}
+      {editing ? (
+        <ShiftForm
+          title="Edit shift"
+          initial={{ date: shift.date, start: shift.start, end: shift.end, location: shift.location, slots: shift.slots }}
+          submitLabel="Save changes"
+          minSlots={Math.max(1, shift.assigned.length)}
+          hint="The new time and location show everywhere this shift appears."
+          onSubmit={onSave}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -262,13 +269,6 @@ function Nav({ label, onPrev, onNext }: { label: string; onPrev: () => void; onN
       </Pressable>
     </View>
   );
-}
-
-/** '09:00' ± minutes, clamped to the day. */
-function shiftTime(hhmm: string, deltaMinutes: number): string {
-  const [h, m] = hhmm.split(':').map(Number);
-  const total = Math.min(23 * 60 + 30, Math.max(0, h * 60 + m + deltaMinutes));
-  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
 /** The Monday on or before a date, so a new shift lands the week view on itself. */
@@ -299,6 +299,10 @@ const styles = StyleSheet.create({
   panelWrap: {
     paddingBottom: 8,
   },
+  editButton: {
+    alignSelf: 'flex-start',
+    marginTop: 6,
+  },
   rosterTitle: {
     fontSize: 13,
     lineHeight: 18,
@@ -308,63 +312,5 @@ const styles = StyleSheet.create({
   divider: {
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#888',
-  },
-  form: {
-    gap: 8,
-  },
-  label: {
-    fontSize: 13,
-    opacity: 0.65,
-    marginTop: 4,
-  },
-  chips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  chip: {
-    paddingVertical: 7,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#888',
-  },
-  chipSelected: {
-    backgroundColor: '#1D3D47',
-    borderColor: '#1D3D47',
-  },
-  chipText: {
-    fontSize: 14,
-    lineHeight: 18,
-  },
-  chipTextSelected: {
-    color: '#FFFFFF',
-  },
-  stepper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 4,
-  },
-  stepperLabel: {
-    width: 56,
-    opacity: 0.65,
-  },
-  stepperValue: {
-    flex: 1,
-    textAlign: 'center',
-  },
-  error: {
-    color: '#C0392B',
-    fontSize: 13,
-  },
-  submit: {
-    marginTop: 6,
-  },
-  hint: {
-    fontSize: 13,
-    lineHeight: 18,
-    opacity: 0.6,
-    textAlign: 'center',
   },
 });
