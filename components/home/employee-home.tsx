@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { greeting } from '@/components/home/greeting';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
+import { ChangeAvailability } from '@/components/schedule/change-availability';
 import { OpenShiftItem } from '@/components/schedule/open-shift-item';
 import { ShiftRow } from '@/components/schedule/shift-row';
 import { HEADER_BG, HeaderIconButton, ScreenHeader } from '@/components/screen-header';
@@ -91,10 +92,11 @@ export function EmployeeHome() {
   const recent = notificationsFor(me.id).slice(0, ACTIVITY_PREVIEW);
   // A posting is something to act on, so it says what to do and opens the
   // availability board; a shift that filled is just news.
-  const lineFor = (n: AppNotification) =>
-    n.kind === 'shift-filled'
-      ? 'Filled — thanks for offering.'
-      : 'New shift posted — tap ✓ or ✗ to give your availability';
+  const lineFor = (n: AppNotification) => {
+    if (n.kind === 'shift-filled') return 'Filled — thanks for offering.';
+    if (n.kind === 'shift-dropped') return "You're off this shift — Jed approved it.";
+    return 'New shift posted — tap ✓ or ✗ to give your availability';
+  };
   const shiftOf = (n: AppNotification) => shifts.find((s) => s.id === n.shiftId);
 
   const punchLabel = punchArmed
@@ -156,12 +158,10 @@ export function EmployeeHome() {
           <ThemedText style={styles.muted}>Nothing scheduled yet.</ThemedText>
         ) : (
           upcoming.map(({ shift, awaiting }, i) => (
-            <ShiftRow
-              key={shift.id}
-              shift={shift}
-              tag={awaiting ? 'Awaiting approval' : undefined}
-              last={i === upcoming.length - 1}
-            />
+            <View key={shift.id} style={i < upcoming.length - 1 && styles.divider}>
+              <ShiftRow shift={shift} tag={awaiting ? 'Awaiting approval' : undefined} last />
+              {awaiting ? null : <ChangeAvailability shift={shift} />}
+            </View>
           ))
         )}
       </Card>
@@ -274,6 +274,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     opacity: 0.6,
+  },
+  divider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#888',
   },
   activityShift: {
     fontSize: 13,

@@ -127,6 +127,13 @@ type AppData = {
   respondToShift: (shiftId: string, staffId: string, answer: ShiftAnswer) => void;
   /** Puts the person on the shift. If that fills it, everyone else who offered is told. */
   assignToShift: (shiftId: string, staffId: string) => void;
+  /**
+   * A worker revisiting a shift they are already on: 'yes' confirms they can
+   * still work it, 'no' asks to come off and files a drop request for Jed.
+   */
+  changeAvailability: (shiftId: string, staffId: string, answer: ShiftAnswer) => void;
+  /** The pending drop request for this person and shift, if they have asked. */
+  dropRequestFor: (shiftId: string, staffId: string) => ApprovalRequest | undefined;
   markNotificationsRead: (staffId: string) => void;
 };
 
@@ -391,6 +398,44 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     [actor, firstName, logActivity, shifts, shiftResponses]
   );
 
+  const changeAvailability = useCallback(
+    (shiftId: string, staffId: string, answer: ShiftAnswer) => {
+      const shift = shifts.find((s) => s.id === shiftId);
+      if (!shift) return;
+      const label = shiftLabel(shift);
+      if (answer === 'yes') {
+        setShiftResponses((prev) => ({ ...prev, [shiftId]: { ...(prev[shiftId] ?? {}), [staffId]: 'yes' } }));
+        logActivity({ kind: 'response', who: firstName(staffId), staffId, text: `✓ Still good for ${label}` });
+        return;
+      }
+      // The shift stays theirs until Jed approves — nobody is left uncovered
+      // by a tap.
+      setRequests((prev) => [
+        {
+          id: newId('r'),
+          staffId,
+          shiftId,
+          kind: 'drop',
+          summary: 'Shift drop request',
+          detail: `Can no longer work ${label}`,
+          at: nowOnDemoDay(),
+          status: 'pending',
+        },
+        ...prev,
+      ]);
+      logActivity({ kind: 'swap', who: firstName(staffId), staffId, text: `✗ Asked to come off ${label}` });
+    },
+    [firstName, logActivity, shifts]
+  );
+
+  const dropRequestFor = useCallback(
+    (shiftId: string, staffId: string) =>
+      requests.find(
+        (r) => r.kind === 'drop' && r.shiftId === shiftId && r.staffId === staffId && r.status === 'pending'
+      ),
+    [requests]
+  );
+
   // --- notifications ------------------------------------------------------------
 
   const prefsFor = useCallback(
@@ -475,6 +520,26 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     (id: string, status: RequestStatus) => {
       const target = requests.find((r) => r.id === id);
       setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+      if (target?.kind === 'drop' && target.shiftId && status === 'approved') {
+        const shiftId = target.shiftId;
+        setShifts((prev) =>
+          prev.map((s) => (s.id === shiftId ? { ...s, assigned: s.assigned.filter((p) => p !== target.staffId) } : s))
+        );
+        // Their old ✓ would otherwise make them an offer for the slot they just left.
+        setShiftResponses((prev) => ({ ...prev, [shiftId]: { ...(prev[shiftId] ?? {}), [target.staffId]: 'no' } }));
+        setNotifications((prev) => [
+          {
+            id: newId('n'),
+            kind: 'shift-dropped',
+            audience: 'workers',
+            shiftId,
+            toStaff: [target.staffId],
+            at: nowOnDemoDay(),
+            readBy: [],
+          },
+          ...prev,
+        ]);
+      }
       if (target) {
         logActivity({
           kind: target.kind === 'punch-correction' ? 'correction' : 'swap',
@@ -580,6 +645,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       submitAvailability,
       respondToShift,
       assignToShift,
+      changeAvailability,
+      dropRequestFor,
       markNotificationsRead,
     }),
     [
@@ -588,7 +655,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       isClockedIn, punchesFor, clockedInNow, shiftsFor, openShiftsFor, awaitingFor, answerFor, responsesFor,
       notificationsFor, unreadNotificationsFor, prefsFor, setNotificationPref,
       clockIn, clockOut, addShift, updateShift, addStaff, setStaffRole, setRequestStatus, submitAvailability,
-      respondToShift, assignToShift, markNotificationsRead,
+      respondToShift, assignToShift, changeAvailability, dropRequestFor, markNotificationsRead,
     ]
   );
 

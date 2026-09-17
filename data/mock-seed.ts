@@ -58,13 +58,15 @@ export type Punch = {
   location: Location;
 };
 
-export type RequestKind = 'punch-correction' | 'swap' | 'time-off' | 'availability';
+export type RequestKind = 'punch-correction' | 'swap' | 'time-off' | 'availability' | 'drop';
 export type RequestStatus = 'pending' | 'approved' | 'denied';
 
 export type ApprovalRequest = {
   id: string;
   staffId: string;
   kind: RequestKind;
+  /** The shift a 'drop' is about — approving it takes the person off this one. */
+  shiftId?: string;
   summary: string;
   detail: string;
   at: string; // ISO
@@ -116,7 +118,7 @@ export type ShiftResponses = Record<string, Record<string, ShiftAnswer>>;
 
 export type AppNotification = {
   id: string;
-  kind: 'shift-posted' | 'shift-filled';
+  kind: 'shift-posted' | 'shift-filled' | 'shift-dropped';
   /** Workers hear about new shifts; nothing is aimed at owner/admin yet. */
   audience: 'workers' | 'admin';
   shiftId: string;

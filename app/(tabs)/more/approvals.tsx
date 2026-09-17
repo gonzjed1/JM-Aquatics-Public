@@ -18,6 +18,7 @@ const KIND_LABEL: Record<RequestKind, string> = {
   swap: 'Shift swap',
   'time-off': 'Time off',
   availability: 'Availability',
+  drop: 'Shift drop',
 };
 
 /**
@@ -57,11 +58,15 @@ export default function ApprovalsScreen() {
               </View>
               <ThemedText style={styles.kind}>{KIND_LABEL[r.kind]}</ThemedText>
               <ThemedText>{r.detail}</ThemedText>
+              {r.kind === 'drop' ? (
+                <ThemedText style={styles.muted}>Approving takes them off it and reopens the slot.</ThemedText>
+              ) : null}
               <View style={styles.actions}>
                 <Button
                   label="Approve"
                   tone="success"
                   size="sm"
+                  accessibilityLabel={`Approve ${nameOf(r.staffId)} — ${KIND_LABEL[r.kind]}`}
                   onPress={() => setRequestStatus(r.id, 'approved')}
                   style={styles.grow}
                 />
@@ -70,6 +75,7 @@ export default function ApprovalsScreen() {
                   tone="danger"
                   variant="outline"
                   size="sm"
+                  accessibilityLabel={`Deny ${nameOf(r.staffId)} — ${KIND_LABEL[r.kind]}`}
                   onPress={() => setRequestStatus(r.id, 'denied')}
                   style={styles.grow}
                 />

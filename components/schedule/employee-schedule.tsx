@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import ParallaxScrollView from '@/components/parallax-scroll-view';
+import { ChangeAvailability } from '@/components/schedule/change-availability';
 import { ShiftRow } from '@/components/schedule/shift-row';
 import { HEADER_BG, ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
@@ -69,12 +70,10 @@ export function EmployeeSchedule() {
             <ThemedText style={styles.muted}>Nothing scheduled yet.</ThemedText>
           ) : (
             upcoming.map(({ shift, awaiting: pending }, i) => (
-              <ShiftRow
-                key={shift.id}
-                shift={shift}
-                tag={pending ? 'Awaiting approval' : undefined}
-                last={i === upcoming.length - 1}
-              />
+              <View key={shift.id} style={i < upcoming.length - 1 && styles.divider}>
+                <ShiftRow shift={shift} tag={pending ? 'Awaiting approval' : undefined} last />
+                {pending ? null : <ChangeAvailability shift={shift} />}
+              </View>
             ))
           )}
         </Card>
@@ -131,6 +130,10 @@ export function EmployeeSchedule() {
 }
 
 const styles = StyleSheet.create({
+  divider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#888',
+  },
   muted: {
     opacity: 0.65,
   },
